@@ -23,6 +23,31 @@ args = ["exec", "typescript-language-server", "--stdio"]
 # typescript-language-server is optional — without it you keep Biome's
 # formatting and lint diagnostics, and Helix logs a harmless startup error.
 # Drop that entry from the list if you'd rather not see it.
+# These four cover the whole codebase. `typescript` and `tsx` are the ones that
+# matter — there are no .js/.jsx files left and `pnpm run check:no-js` keeps it
+# that way — but Helix keys off its own language names, and without an entry a
+# file falls back to the built-in default: typescript-language-server doing
+# both navigation *and* formatting, with Biome not attached at all. So the
+# split below has to be stated for each name explicitly.
+#
+# javascript/jsx are kept for config files and scratch buffers that are not
+# tracked by git.
+[[language]]
+name = "typescript"
+language-servers = [
+  { name = "typescript-language-server", except-features = ["format"] },
+  "biome",
+]
+auto-format = true
+
+[[language]]
+name = "tsx"
+language-servers = [
+  { name = "typescript-language-server", except-features = ["format"] },
+  "biome",
+]
+auto-format = true
+
 [[language]]
 name = "javascript"
 language-servers = [

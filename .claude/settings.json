@@ -7,7 +7,8 @@
       "Bash(pnpm test)",
       "Bash(pnpm run lint)",
       "Bash(pnpm run lint:fix)",
-      "Bash(pnpm audit)"
+      "Bash(pnpm audit)",
+      "Bash(openspec:*)"
     ]
   }
 }

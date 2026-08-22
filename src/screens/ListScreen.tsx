@@ -6,6 +6,7 @@ import {
   FlatList,
   Image,
   KeyboardAvoidingView,
+  type ListRenderItemInfo,
   Platform,
   StyleSheet,
   Text,
@@ -14,9 +15,25 @@ import {
   View,
 } from "react-native";
 import { useGrocery } from "../state/GroceryStore";
-import { colors, nutriColors } from "../theme";
+import { colors, nutriColorFor } from "../theme";
+import type { GroceryItem } from "../types";
 
-function Row({ item, onToggle, onRemove }) {
+/**
+ * One entry in the flattened list. Headers, empty-state lines and real items
+ * share a single FlatList, so `type` is what tells `renderItem` them apart.
+ */
+type Row =
+  | { type: "header"; key: string; label: string; showClear?: boolean }
+  | { type: "empty"; key: string; label: string }
+  | { type: "item"; key: string; item: GroceryItem };
+
+interface RowProps {
+  item: GroceryItem;
+  onToggle: (id: string) => void;
+  onRemove: (id: string) => void;
+}
+
+function Row({ item, onToggle, onRemove }: RowProps) {
   return (
     <View style={styles.row}>
       <TouchableOpacity
@@ -49,10 +66,7 @@ function Row({ item, onToggle, onRemove }) {
               <View
                 style={[
                   styles.nutriDot,
-                  {
-                    backgroundColor:
-                      nutriColors[item.nutriScore] || colors.subtle,
-                  },
+                  { backgroundColor: nutriColorFor(item.nutriScore) },
                 ]}
               >
                 <Text style={styles.nutriDotText}>{item.nutriScore}</Text>
@@ -87,8 +101,8 @@ export default function ListScreen() {
   };
 
   // Build a single sectioned data array for one FlatList.
-  const data = useMemo(() => {
-    const out = [
+  const data = useMemo<Row[]>(() => {
+    const out: Row[] = [
       { type: "header", key: "h-tobuy", label: `To buy (${toBuy.length})` },
     ];
     if (toBuy.length === 0) {
@@ -118,7 +132,7 @@ export default function ListScreen() {
     return out;
   }, [toBuy, bought]);
 
-  const renderItem = ({ item: row }) => {
+  const renderItem = ({ item: row }: ListRenderItemInfo<Row>) => {
     if (row.type === "header") {
       return (
         <View style={styles.sectionHeader}>

@@ -1,7 +1,12 @@
 // Scan screen: point the camera at a product barcode (or QR code),
 // look it up on Open Food Facts, and add it to your grocery list.
 
-import { CameraView, useCameraPermissions } from "expo-camera";
+import {
+  type BarcodeScanningResult,
+  type BarcodeType,
+  CameraView,
+  useCameraPermissions,
+} from "expo-camera";
 import { useCallback, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -15,25 +20,33 @@ import {
 import { lookupProduct } from "../api/openFoodFacts";
 import { extractBarcode } from "../lib/barcode";
 import { useGrocery } from "../state/GroceryStore";
-import { colors, nutriColors } from "../theme";
+import { colors, nutriColorFor } from "../theme";
+import type { Product } from "../types";
 
 // Barcode formats worth scanning for groceries. QR is included because some
 // products now carry GS1 Digital Link QR codes that embed the product number.
-const BARCODE_TYPES = ["ean13", "ean8", "upc_a", "upc_e", "qr"];
+const BARCODE_TYPES: BarcodeType[] = ["ean13", "ean8", "upc_a", "upc_e", "qr"];
+
+type Status =
+  | "scanning"
+  | "loading"
+  | "result"
+  | "notfound"
+  | "invalid"
+  | "error";
 
 export default function ScanScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const { addProduct, productCache, cacheProduct } = useGrocery();
 
-  // scanning | loading | result | notfound | invalid | error
-  const [status, setStatus] = useState("scanning");
-  const [product, setProduct] = useState(null);
+  const [status, setStatus] = useState<Status>("scanning");
+  const [product, setProduct] = useState<Product | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
   const [lastCode, setLastCode] = useState("");
   const lockRef = useRef(false); // prevents a burst of duplicate scans
 
   const handleScanned = useCallback(
-    async ({ data }) => {
+    async ({ data }: BarcodeScanningResult) => {
       if (lockRef.current) return;
       lockRef.current = true;
 
@@ -51,8 +64,9 @@ export default function ScanScreen() {
 
       try {
         // Offline-friendly: use the cached product if we've seen it before.
-        if (productCache[code]) {
-          setProduct(productCache[code]);
+        const cached = productCache[code];
+        if (cached) {
+          setProduct(cached);
           setStatus("result");
           return;
         }
@@ -65,7 +79,9 @@ export default function ScanScreen() {
           setStatus("notfound");
         }
       } catch (e) {
-        setErrorMsg(e.message || "Something went wrong");
+        setErrorMsg(
+          (e instanceof Error && e.message) || "Something went wrong",
+        );
         setStatus("error");
       }
     },
@@ -156,10 +172,7 @@ export default function ScanScreen() {
                 <View
                   style={[
                     styles.nutriBadge,
-                    {
-                      backgroundColor:
-                        nutriColors[product.nutriScore] || colors.subtle,
-                    },
+                    { backgroundColor: nutriColorFor(product.nutriScore) },
                   ]}
                 >
                   <Text style={styles.nutriText}>

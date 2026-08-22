@@ -2,6 +2,11 @@
 
 export const MAX_CACHED_PRODUCTS = 300;
 
+/** The only field eviction cares about — see `capCache`. */
+interface Cacheable {
+  cachedAt?: number;
+}
+
 /**
  * Drop the least recently cached products once the cache is over `limit`.
  *
@@ -10,11 +15,17 @@ export const MAX_CACHED_PRODUCTS = 300;
  * an 8-digit EAN fits in that range while a 13-digit one doesn't, so insertion
  * order is genuinely not something we can rely on here.
  *
- * @param {Record<string, object>} cache - barcode -> product.
- * @param {number} [limit] - how many products to keep.
- * @returns {Record<string, object>} the cache, unchanged if it was within limit.
+ * `cachedAt` is optional because entries written before it existed are still on
+ * people's devices; those sort as oldest and get evicted first.
+ *
+ * @param cache - barcode -> product.
+ * @param limit - how many products to keep.
+ * @returns the cache, unchanged (same reference) if it was within limit.
  */
-export function capCache(cache, limit = MAX_CACHED_PRODUCTS) {
+export function capCache<T extends Cacheable>(
+  cache: Record<string, T>,
+  limit: number = MAX_CACHED_PRODUCTS,
+): Record<string, T> {
   const keys = Object.keys(cache);
   if (keys.length <= limit) return cache;
 

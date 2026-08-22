@@ -1,0 +1,17 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    // The whole codebase is TypeScript. Note this only stops tsc from *reading*
+    // JS — a stray .js file would be skipped silently, not flagged, because
+    // Metro would still happily bundle it. The "no-js" script is what actually
+    // enforces the migration; see package.json.
+    "allowJs": false,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "verbatimModuleSyntax": true
+  },
+  "include": ["**/*.ts", "**/*.tsx"],
+  "exclude": ["node_modules"]
+}

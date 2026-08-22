@@ -17,12 +17,19 @@ import ScanScreen from "./src/screens/ScanScreen";
 import { GroceryProvider, useGrocery } from "./src/state/GroceryStore";
 import { colors } from "./src/theme";
 
-const TABS = [
+type TabKey = "scan" | "list";
+
+const TABS: { key: TabKey; label: string; icon: string }[] = [
   { key: "scan", label: "Scan", icon: "▣" },
   { key: "list", label: "List", icon: "☰" },
 ];
 
-function TabBar({ active, onChange }) {
+interface TabBarProps {
+  active: TabKey;
+  onChange: (key: TabKey) => void;
+}
+
+function TabBar({ active, onChange }: TabBarProps) {
   const { items } = useGrocery();
   const toBuyCount = items.filter((i) => !i.bought).length;
 
@@ -51,7 +58,7 @@ function TabBar({ active, onChange }) {
 }
 
 function Shell() {
-  const [tab, setTab] = useState("scan");
+  const [tab, setTab] = useState<TabKey>("scan");
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar style="dark" />

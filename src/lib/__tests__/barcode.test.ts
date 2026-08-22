@@ -1,3 +1,4 @@
+import { describe, expect, it } from "@jest/globals";
 import { extractBarcode } from "../barcode";
 
 describe("extractBarcode", () => {
@@ -33,6 +34,8 @@ describe("extractBarcode", () => {
     expect(extractBarcode(input)).toBeNull();
   });
 
+  // `extractBarcode` takes `unknown` precisely so these are reachable: the
+  // scanner's payload is not something the type system can vouch for.
   it.each([[null], [undefined], [42], [{}]])(
     "returns null for non-string input (%p)",
     (input) => {

@@ -38,20 +38,35 @@ You don't need Xcode or Android Studio to try it.
    scan the QR code shown in your terminal. The app loads live on your phone —
    fittingly, by scanning a QR code. 😄
 
-> Tip: if any package version looks mismatched, run `npx expo install --fix`.
+> Tip: if any package version looks mismatched, run `npx expo install --check`
+> to see what Expo expects, then `npx expo install --fix` to apply it.
 
 ## Project layout
 
 ```
-App.js                     Two-tab shell (Scan / List) + state provider
+App.tsx                    Two-tab shell (Scan / List) + state provider
 app.json                   Expo config + camera permission text
+tsconfig.json              Extends expo/tsconfig.base, strict mode on
 src/
-  api/openFoodFacts.js     The product-lookup API call
-  state/GroceryStore.js    App state + AsyncStorage persistence + product cache
-  screens/ScanScreen.js    Camera + barcode scanning + result card
-  screens/ListScreen.js    The grocery list UI
-  theme.js                 Colours / Nutri-Score palette
+  api/openFoodFacts.ts     The product-lookup API call
+  state/GroceryStore.tsx   App state + AsyncStorage persistence + product cache
+  screens/ScanScreen.tsx   Camera + barcode scanning + result card
+  screens/ListScreen.tsx   The grocery list UI
+  types.ts                 Shared domain types (Product, GroceryItem, …)
+  theme.ts                 Colours / Nutri-Score palette
 ```
+
+The project is **TypeScript throughout**, in `strict` mode. Three checks run in
+CI and you can run all of them at once with `pnpm run check`:
+
+| Command | What it catches |
+|---|---|
+| `pnpm run typecheck` | Type errors (`tsc --noEmit`) |
+| `pnpm run lint` | Style, formatting, import order (Biome) |
+| `pnpm run check:no-js` | A `.js` file sneaking back in |
+
+Biome and `tsc` do genuinely different jobs — Biome has no type information, so
+it will happily accept a type error. You need both.
 
 ## Where the product data comes from
 

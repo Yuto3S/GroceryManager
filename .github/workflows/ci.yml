@@ -36,6 +36,16 @@ jobs:
       - name: No unreviewed security advisories
         run: pnpm audit
 
+      # Biome parses TypeScript but does not typecheck it, so this is a
+      # separate gate — biome ci passes clean on a genuine type error.
+      - name: Typecheck
+        run: pnpm run typecheck
+
+      # The codebase is all TypeScript; tsc silently skips .js rather than
+      # flagging it, so nothing else would catch a file slipping back.
+      - name: No untyped JavaScript
+        run: pnpm run check:no-js
+
       - name: Lint and format
         run: pnpm run lint:ci
 

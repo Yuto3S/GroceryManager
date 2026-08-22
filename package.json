@@ -1,7 +1,7 @@
 {
   "name": "grocery-scanner",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "index.ts",
   "packageManager": "pnpm@11.22.0",
   "dependencies": {
     "@react-native-async-storage/async-storage": "^2.2.0",
@@ -23,7 +23,10 @@
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "format": "biome format --write .",
-    "lint:ci": "biome ci ."
+    "lint:ci": "biome ci .",
+    "typecheck": "tsc --noEmit",
+    "check": "pnpm run check:no-js && pnpm run typecheck && pnpm run lint",
+    "check:no-js": "test -z \"$(git ls-files -- '*.js' '*.jsx')\" || { echo 'Untyped .js/.jsx files are tracked:'; git ls-files -- '*.js' '*.jsx'; exit 1; }"
   },
   "private": true,
   "jest": {
@@ -32,16 +35,17 @@
       "node_modules/(?!(?:.pnpm/)?((jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg))"
     ],
     "collectCoverageFrom": [
-      "src/**/*.js",
+      "src/**/*.{ts,tsx}",
       "!src/**/__tests__/**"
     ]
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.8",
     "@testing-library/react-native": "^14.0.1",
+    "@types/react": "19.2.18",
     "jest": "~29.7.0",
     "jest-expo": "~57.0.4",
-    "typescript": "^5.9.3",
+    "typescript": "^6.0.3",
     "typescript-language-server": "^5.3.0"
   }
 }

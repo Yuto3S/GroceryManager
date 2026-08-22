@@ -1,6 +1,7 @@
+import { describe, expect, it } from "@jest/globals";
 import { capCache, MAX_CACHED_PRODUCTS } from "../cache";
 
-const at = (cachedAt) => ({ cachedAt });
+const at = (cachedAt: number) => ({ cachedAt });
 
 describe("capCache", () => {
   it("leaves a cache that's within the limit untouched", () => {
@@ -41,7 +42,7 @@ describe("capCache", () => {
   });
 
   it("treats a missing cachedAt as oldest", () => {
-    const cache = {
+    const cache: Record<string, { cachedAt?: number }> = {
       1111111111111: {}, // legacy entry written before cachedAt existed
       2222222222222: at(5),
     };
@@ -49,7 +50,7 @@ describe("capCache", () => {
   });
 
   it("defaults to MAX_CACHED_PRODUCTS", () => {
-    const cache = {};
+    const cache: Record<string, { cachedAt: number }> = {};
     for (let i = 0; i < MAX_CACHED_PRODUCTS + 10; i++) {
       cache[`999${String(i).padStart(10, "0")}`] = at(i);
     }

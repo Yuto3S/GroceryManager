@@ -7,6 +7,10 @@ Facts → add to a list → check off as bought. See README.md for the full tour
 
 - **Expo SDK 57 / React Native 0.86 / React 19.** APIs move fast — check the
   versioned docs at https://docs.expo.dev/versions/v57.0.0/ before adding libs.
+- **The codebase is TypeScript**, `strict` plus `noUncheckedIndexedAccess`.
+  There are no `.js`/`.jsx` files left and `pnpm run check:no-js` keeps it that
+  way. Pin `typescript` to what the SDK expects (`~6.0.3` for SDK 57), not to
+  npm `latest` — TypeScript 7 is out and ahead of Expo.
 - Barcode scanning uses **`expo-camera`** (`CameraView` + `onBarcodeScanned`),
   not the deprecated `expo-barcode-scanner`.
 - Persistence is **AsyncStorage**, wrapped in `src/state/GroceryStore.js`.
@@ -64,7 +68,11 @@ Facts → add to a list → check off as bought. See README.md for the full tour
 - Never run `npm audit fix --force`: it "fixes" the two accepted advisories by
   downgrading to `expo@53`. Rationale in SECURITY.md.
 - Open Food Facts data is untrusted (anyone can edit it). Normalize it in
-  `src/api/openFoodFacts.js`; image URLs must be `https://` only.
+  `src/api/openFoodFacts.ts`; image URLs must be `https://` only.
+- **Types are not validation.** `res.json()` is typed `unknown` and stays that
+  way until `isRecord`/`asString` have checked it. Annotating the response as a
+  `Product` would be an assertion, not a check, and would let a vandalized
+  record through with the type system vouching for it. Never widen that.
 - **Never install a git/GitHub dependency.** Registry tarballs don't run their
   `prepare` scripts; git dependencies do. Every package must resolve to
   `registry.npmjs.org` — 46 packages in this tree ship a `prepare`/`prepack`
@@ -72,6 +80,8 @@ Facts → add to a list → check off as bought. See README.md for the full tour
 - These verification commands are pre-approved, run them freely:
   `pnpm test`, `pnpm run lint`, `pnpm run lint:fix`, `pnpm audit`, and
   `openspec` (any subcommand — the allowlist rule is `Bash(openspec:*)`).
+  `pnpm run typecheck`, `check:no-js` and `check` are *not* in
+  `.claude/settings.json` yet, so they still prompt.
   Ask before invoking any other package executable. Running the app
   (`pnpm exec expo start`) is fine when the user asks to see it working.
 
@@ -79,9 +89,15 @@ Facts → add to a list → check off as bought. See README.md for the full tour
 
 - `pnpm test` runs Jest via the `jest-expo` preset. Unit tests only for now —
   E2E was deferred; see SECURITY.md and the note below on Detox.
+- Tests are `.ts` and import their globals from **`@jest/globals`** rather than
+  relying on ambient types. That's a deliberate dependency choice: `@types/jest`
+  would be another package to keep in step with Jest, and `@jest/globals` ships
+  with Jest itself.
 - Pure, security-relevant logic lives in `src/lib/` precisely so it's testable
-  without a native build: `barcode.js` (what we're willing to send to Open Food
-  Facts) and `cache.js` (bounding the offline cache).
+  without a native build: `barcode.ts` (what we're willing to send to Open Food
+  Facts) and `cache.ts` (bounding the offline cache).
+- `extractBarcode` takes `unknown`, not `string`, so the "what if the scanner
+  hands us a number" tests stay reachable. Keep it that way.
 - `react-test-renderer` is deprecated and doesn't support React 19 — use
   `@testing-library/react-native` for component tests.
 - **Detox is not an option while the app targets Expo Go.** It needs the native
@@ -92,8 +108,14 @@ Facts → add to a list → check off as bought. See README.md for the full tour
 
 ## Code style
 
-- **Biome** does linting, formatting and import sorting — one tool, config in
+- **Biome** does linting, formatting and import sorting — config in
   `biome.json`. `pnpm run lint` to check, `pnpm run lint:fix` to fix.
+- **Biome does not typecheck.** It parses TypeScript but has no type
+  information, so `const x: number = "nope"` passes `biome check` clean. Type
+  errors are caught only by `pnpm run typecheck` (`tsc --noEmit`), which is a
+  separate CI gate. Running lint alone proves nothing about types.
+- `pnpm run check` is the full local gate: `check:no-js`, then `typecheck`,
+  then `lint` — the same three CI runs.
 - Chosen over ESLint + Prettier deliberately: it's ~2 packages with no install
   scripts, so pnpm's `strictDepBuilds` gate stays happy. The trade-off is no
   React Native-specific rules, which `eslint-config-expo` would have given.
@@ -104,9 +126,14 @@ Facts → add to a list → check off as bought. See README.md for the full tour
 
 ## Architecture
 
-- `src/state/GroceryStore.js` — single source of truth (reducer + context).
-  All list mutations and the offline product cache live here.
-- `src/api/openFoodFacts.js` — the only place that talks to the network.
+- `src/state/GroceryStore.tsx` — single source of truth (reducer + context).
+  All list mutations and the offline product cache live here. `Action` is a
+  discriminated union and the reducer's `default` branch assigns to `never`, so
+  adding a variant without handling it fails to compile.
+- `src/api/openFoodFacts.ts` — the only place that talks to the network.
+- `src/types.ts` — the shared domain types (`Product`, `GroceryItem`,
+  `ProductCache`). `Product` is the *normalized* shape, deliberately: see the
+  note under "Dependency policy" about untrusted data.
 - Screens are presentational and read/write through the `useGrocery()` hook.
 
 ## Quick start

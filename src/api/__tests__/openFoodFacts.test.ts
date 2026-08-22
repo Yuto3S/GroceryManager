@@ -1,8 +1,12 @@
+import { beforeEach, describe, expect, it, jest } from "@jest/globals";
 import { lookupProduct } from "../openFoodFacts";
 
 const BARCODE = "3017620422003";
 
-const payload = (productOverrides = {}) => ({
+const fetchMock = jest.fn<typeof fetch>();
+global.fetch = fetchMock;
+
+const payload = (productOverrides: Record<string, unknown> = {}) => ({
   status: 1,
   product: {
     code: BARCODE,
@@ -15,14 +19,18 @@ const payload = (productOverrides = {}) => ({
   },
 });
 
-function mockResponse(body, { ok = true, status = 200 } = {}) {
-  global.fetch = jest
-    .fn()
-    .mockResolvedValue({ ok, status, json: async () => body });
+function mockResponse(body: unknown, { ok = true, status = 200 } = {}) {
+  // Deliberately a partial Response — lookupProduct reads only ok, status and
+  // json(). Building a real one would test the polyfill, not the lookup.
+  fetchMock.mockResolvedValue({
+    ok,
+    status,
+    json: async () => body,
+  } as unknown as Response);
 }
 
 beforeEach(() => {
-  global.fetch = jest.fn();
+  fetchMock.mockReset();
 });
 
 describe("lookupProduct", () => {
@@ -41,7 +49,9 @@ describe("lookupProduct", () => {
   it("requests the barcode we asked for", async () => {
     mockResponse(payload());
     await lookupProduct(BARCODE);
-    expect(global.fetch.mock.calls[0][0]).toContain(`/product/${BARCODE}.json`);
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain(
+      `/product/${BARCODE}.json`,
+    );
   });
 
   describe("untrusted image URLs", () => {
@@ -71,11 +81,34 @@ describe("lookupProduct", () => {
     });
   });
 
+  // Types stop at the module boundary: the response is `unknown` at runtime, so
+  // a field arriving as the wrong type must degrade rather than crash.
+  describe("fields of the wrong type", () => {
+    it("falls back to the requested barcode when code isn't a string", async () => {
+      mockResponse(payload({ code: 3017620422003 }));
+      await expect(lookupProduct(BARCODE)).resolves.toMatchObject({
+        barcode: BARCODE,
+      });
+    });
+
+    it("drops a non-string nutriscore instead of throwing", async () => {
+      mockResponse(payload({ nutriscore_grade: 5 }));
+      await expect(lookupProduct(BARCODE)).resolves.toMatchObject({
+        nutriScore: null,
+      });
+    });
+
+    it("returns null when product isn't an object", async () => {
+      mockResponse({ status: 1, product: "nope" });
+      await expect(lookupProduct(BARCODE)).resolves.toBeNull();
+    });
+  });
+
   it("refuses a non-numeric barcode without hitting the network", async () => {
     await expect(
       lookupProduct("https://evil.example/steal"),
     ).resolves.toBeNull();
-    expect(global.fetch).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -101,7 +134,7 @@ describe("lookupProduct", () => {
   it("reports a timeout rather than leaking the AbortError", async () => {
     const aborted = new Error("The operation was aborted");
     aborted.name = "AbortError";
-    global.fetch = jest.fn().mockRejectedValue(aborted);
+    fetchMock.mockRejectedValue(aborted);
 
     await expect(lookupProduct(BARCODE)).rejects.toThrow("timed out");
   });
@@ -109,6 +142,6 @@ describe("lookupProduct", () => {
   it("passes an abort signal so the request can be cancelled", async () => {
     mockResponse(payload());
     await lookupProduct(BARCODE);
-    expect(global.fetch.mock.calls[0][1].signal).toBeDefined();
+    expect(fetchMock.mock.calls[0]?.[1]?.signal).toBeDefined();
   });
 });

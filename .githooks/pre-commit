@@ -1,0 +1,99 @@
+#!/bin/sh
+#
+# Grocery Scanner pre-commit checks. No dependencies on purpose — adding an npm
+# hook runner would mean adding npm packages, which is what we're guarding.
+#
+# Enable (once, after `git init`):
+#     git config core.hooksPath .githooks
+#
+# Bypass a single commit if you really need to:  git commit --no-verify
+
+set -eu
+
+fail=0
+note() { printf '  %s\n' "$1"; }
+problem() { printf '\npre-commit: %s\n' "$1"; fail=1; }
+
+# Staged files, added/copied/modified only (not deletions).
+staged=$(git diff --cached --name-only --diff-filter=ACM)
+[ -z "$staged" ] && exit 0
+
+# ---------------------------------------------------------------------------
+# 1. Never commit credentials or signing material.
+# ---------------------------------------------------------------------------
+secret_files=$(printf '%s\n' "$staged" | grep -Ei \
+  '(^|/)\.env($|\.)|\.(pem|key|p8|p12|jks|keystore|mobileprovision)$' || true)
+if [ -n "$secret_files" ]; then
+  problem "refusing to commit credential / signing files:"
+  printf '%s\n' "$secret_files" | while read -r f; do note "$f"; done
+fi
+
+# ---------------------------------------------------------------------------
+# 2. Scan staged content for key-shaped strings.
+#    .githooks/ is skipped: the patterns below would match themselves.
+# ---------------------------------------------------------------------------
+patterns='AKIA[0-9A-Z]{16}'
+patterns="$patterns|sk-ant-[A-Za-z0-9_-]{16,}"
+patterns="$patterns|gh[pousr]_[A-Za-z0-9]{20,}"
+patterns="$patterns|github_pat_[A-Za-z0-9_]{20,}"
+patterns="$patterns|-----BEGIN [A-Z ]*PRIVATE KEY-----"
+patterns="$patterns|(api[_-]?key|secret|password|auth[_-]?token)[\"' ]*[:=][\"' ]*[A-Za-z0-9_/+-]{16,}"
+
+for f in $staged; do
+  case "$f" in
+    .githooks/*|package-lock.json) continue ;;
+  esac
+  [ -f "$f" ] || continue
+  if git show ":$f" | grep -nEi "$patterns" >/dev/null 2>&1; then
+    problem "possible secret in $f:"
+    git show ":$f" | grep -nEi "$patterns" | head -3 | while read -r l; do
+      note "$(printf '%.100s' "$l")"
+    done
+  fi
+done
+
+# ---------------------------------------------------------------------------
+# 3. Dependency hygiene.
+# ---------------------------------------------------------------------------
+if printf '%s\n' "$staged" | grep -q '^node_modules/'; then
+  problem "node_modules/ is staged — it belongs in .gitignore."
+fi
+
+pkg=$(printf '%s\n' "$staged" | grep -c '^package\.json$' || true)
+lock=$(printf '%s\n' "$staged" | grep -c '^package-lock\.json$' || true)
+if [ "$pkg" -gt 0 ] && [ "$lock" -eq 0 ]; then
+  problem "package.json changed but package-lock.json didn't."
+  note "Commit them together so the locked tree stays reproducible."
+  note "See AGENTS.md for the 7-day dependency cooldown before adding packages."
+fi
+
+# ---------------------------------------------------------------------------
+# 3b. If the dependency tree changed, make sure nothing can run code on install.
+#     Offline and fast, so it's safe to do on every relevant commit.
+# ---------------------------------------------------------------------------
+if [ "$lock" -gt 0 ] && [ -x scripts/check-install-scripts.sh ]; then
+  if ! out=$(./scripts/check-install-scripts.sh 2>&1); then
+    problem "a dependency can execute code at install time:"
+    printf '%s\n' "$out" | grep -E '^\s+(FAIL|\s{9})' | while read -r l; do note "$l"; done
+    note "Run ./scripts/check-install-scripts.sh for the full report."
+  fi
+fi
+
+# ---------------------------------------------------------------------------
+# 4. Oversized files (the lockfile is legitimately large, so allow it).
+# ---------------------------------------------------------------------------
+for f in $staged; do
+  [ "$f" = "package-lock.json" ] && continue
+  [ -f "$f" ] || continue
+  size=$(wc -c < "$f" | tr -d ' ')
+  if [ "$size" -gt 1048576 ]; then
+    problem "$f is $((size / 1024))KB — over the 1MB limit."
+  fi
+done
+
+if [ "$fail" -ne 0 ]; then
+  printf '\nCommit aborted. Fix the above, or use --no-verify to override.\n\n'
+  exit 1
+fi
+
+exit 0

@@ -1,0 +1,71 @@
+# Security notes
+
+## Threat model
+
+This app has no accounts, no backend, and no analytics. All data (your list and
+the cached products) lives on the device in AsyncStorage. Exactly one network
+call leaves the app: a product lookup to Open Food Facts over HTTPS, sending
+only the scanned barcode.
+
+Two consequences worth knowing:
+
+- Open Food Facts sees your IP address and every barcode you scan.
+- Open Food Facts is **community-editable**, so product names, brands and image
+  URLs are untrusted input. `src/api/openFoodFacts.js` normalizes them and
+  drops any image URL that isn't plain `https://`.
+
+## The 18 `npm audit` findings
+
+`npm audit` reports 18 vulnerabilities (11 high, 7 moderate). They collapse to
+**two** root advisories, and neither is fixable today. They are accepted risks,
+not oversights.
+
+| Advisory | Package | Path | Why it's accepted |
+|---|---|---|---|
+| [GHSA-w3rx-r6r6-pgpr](https://github.com/advisories/GHSA-w3rx-r6r6-pgpr), [GHSA-5p2g-fcmc-qvqq](https://github.com/advisories/GHSA-5p2g-fcmc-qvqq) | `image-size@1.2.1` | `metro` → bundler | DoS via malformed ICNS/JXL/HEIF. Metro only parses the six PNGs in `assets/`, which we control. No attacker input reaches it. |
+| [GHSA-w5hq-g745-h8pq](https://github.com/advisories/GHSA-w5hq-g745-h8pq) | `uuid@7.0.3` | `xcode` → `@expo/config-plugins` | Buffer bounds check in `v3/v5/v6` when `buf` is passed. Only runs during `expo prebuild`, which this project never does (it targets Expo Go). |
+
+**Neither package ships in the app bundle.** Both are build-time tooling.
+
+### Why `npm audit fix` does nothing
+
+`npm audit fix` only upgrades within the semver ranges the dependency tree
+already allows. No patched version exists inside those ranges:
+
+- `image-size` is vulnerable at `<=2.0.2`, which covers every `1.x`. Metro
+  requires `^1.0.2`, so there is no in-range fix — reaching a patched release
+  means a major bump to `2.x`, which changes the module's exports and would
+  likely break the bundler.
+- `uuid` is vulnerable at `<11.1.1`. `xcode` requires `^7.0.3`, four majors
+  behind, and `uuid` dropped its default export in v9.
+
+### Why not `npm audit fix --force`
+
+It resolves the tree by installing **`expo@53`** — four SDK majors backwards,
+from SDK 57. That trades two unreachable build-time DoS bugs for a large,
+genuinely outdated dependency tree. It is strictly worse. Don't run it.
+
+### What would actually fix it
+
+Upstream: Expo/Metro bumping `image-size`, and `@expo/config-plugins` bumping
+`xcode`/`uuid`. Both are tracked by Expo. Re-check on each SDK release.
+
+If you ever need a clean audit before then, `overrides` in `package.json` can
+force patched versions — but it is untested against Metro and can break the
+bundler, so it needs verification with a real `npx expo start` run.
+
+### Keeping the signal useful
+
+So that these two known findings don't hide a *new* one, run:
+
+```bash
+npm run audit:check
+```
+
+It fails only on advisories that aren't in the allowlist in
+`scripts/audit-check.sh`. Review the allowlist on the date noted there.
+
+## Dependency policy
+
+See "Dependency policy" in `AGENTS.md`: new packages must be at least 7 days
+old, installs skip lifecycle scripts, and CI/local installs use `npm ci`.

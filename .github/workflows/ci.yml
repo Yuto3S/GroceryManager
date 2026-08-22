@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Weekly, so a newly-published advisory surfaces without waiting for a push.
+    - cron: "0 6 * * 1"
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      # --ignore-scripts matches the local policy: nothing in this tree needs
+      # to run code at install time, and deps:scripts enforces that below.
+      - name: Install (no lifecycle scripts)
+        run: npm ci --ignore-scripts
+
+      - name: No dependency may run code at install time
+        run: npm run deps:scripts
+
+      - name: No unreviewed security advisories
+        run: npm run audit:check
+
+      - name: Dependencies have cleared the cooldown
+        run: npm run deps:age
+
+      - name: Unit tests
+        run: npm test

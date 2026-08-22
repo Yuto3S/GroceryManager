@@ -1,0 +1,40 @@
+# Project-local Helix config. Merged over Helix's built-in defaults, so it only
+# needs to state what differs. See :log-open if a server doesn't come up.
+
+# Biome speaks LSP through a proxy subcommand. Invoked via `pnpm exec` so the
+# editor uses the exact version pinned in this project rather than whatever
+# happens to be on PATH. If you install Biome globally instead, this becomes
+# simply: command = "biome", args = ["lsp-proxy"]
+[language-server.biome]
+command = "pnpm"
+args = ["exec", "biome", "lsp-proxy"]
+
+# Navigation (goto-definition, references, hover, completions) comes from here —
+# Biome deliberately doesn't provide any of it. Routed through `pnpm exec` so it
+# works whether you install it as a devDependency or globally: pnpm exec checks
+# node_modules/.bin first, then falls back to PATH.
+[language-server.typescript-language-server]
+command = "pnpm"
+args = ["exec", "typescript-language-server", "--stdio"]
+
+# Biome owns formatting; typescript-language-server keeps completions, hover
+# and goto-definition. Splitting them avoids two servers fighting over format.
+#
+# typescript-language-server is optional — without it you keep Biome's
+# formatting and lint diagnostics, and Helix logs a harmless startup error.
+# Drop that entry from the list if you'd rather not see it.
+[[language]]
+name = "javascript"
+language-servers = [
+  { name = "typescript-language-server", except-features = ["format"] },
+  "biome",
+]
+auto-format = true
+
+[[language]]
+name = "jsx"
+language-servers = [
+  { name = "typescript-language-server", except-features = ["format"] },
+  "biome",
+]
+auto-format = true

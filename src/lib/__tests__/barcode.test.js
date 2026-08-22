@@ -11,15 +11,15 @@ describe("extractBarcode", () => {
 
   it("pulls the product number out of a GS1 Digital Link", () => {
     expect(extractBarcode("https://id.gs1.org/01/09506000134352/21/XYZ")).toBe(
-      "09506000134352"
+      "09506000134352",
     );
   });
 
   it("prefers the /01/ segment over an earlier digit run", () => {
     // The fallback would have grabbed 99999999 here, which isn't the product.
-    expect(extractBarcode("https://example.com/99999999/01/09506000134352")).toBe(
-      "09506000134352"
-    );
+    expect(
+      extractBarcode("https://example.com/99999999/01/09506000134352"),
+    ).toBe("09506000134352");
   });
 
   // The security-relevant cases: anything below must NOT reach Open Food Facts.
@@ -37,6 +37,6 @@ describe("extractBarcode", () => {
     "returns null for non-string input (%p)",
     (input) => {
       expect(extractBarcode(input)).toBeNull();
-    }
+    },
   );
 });

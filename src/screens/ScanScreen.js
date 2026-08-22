@@ -1,20 +1,20 @@
 // Scan screen: point the camera at a product barcode (or QR code),
 // look it up on Open Food Facts, and add it to your grocery list.
 
-import React, { useState, useCallback, useRef } from "react";
+import { CameraView, useCameraPermissions } from "expo-camera";
+import { useCallback, useRef, useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
   ActivityIndicator,
   Image,
   ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
-import { CameraView, useCameraPermissions } from "expo-camera";
 import { lookupProduct } from "../api/openFoodFacts";
-import { useGrocery } from "../state/GroceryStore";
 import { extractBarcode } from "../lib/barcode";
+import { useGrocery } from "../state/GroceryStore";
 import { colors, nutriColors } from "../theme";
 
 // Barcode formats worth scanning for groceries. QR is included because some
@@ -69,7 +69,7 @@ export default function ScanScreen() {
         setStatus("error");
       }
     },
-    [productCache, cacheProduct]
+    [productCache, cacheProduct],
   );
 
   const resetToScan = useCallback(() => {
@@ -185,7 +185,9 @@ export default function ScanScreen() {
                   resetToScan();
                 }}
               >
-                <Text style={styles.secondaryBtnText}>Add as already bought</Text>
+                <Text style={styles.secondaryBtnText}>
+                  Add as already bought
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={resetToScan}>
                 <Text style={styles.link}>Scan another</Text>
@@ -197,8 +199,8 @@ export default function ScanScreen() {
             <View style={styles.card}>
               <Text style={styles.title}>Not in the database</Text>
               <Text style={styles.subtle}>
-                Barcode {lastCode} wasn't found on Open Food Facts. You can still
-                add it to your list by hand from the List tab.
+                Barcode {lastCode} wasn't found on Open Food Facts. You can
+                still add it to your list by hand from the List tab.
               </Text>
               <TouchableOpacity style={styles.primaryBtn} onPress={resetToScan}>
                 <Text style={styles.primaryBtnText}>Scan again</Text>
@@ -302,7 +304,12 @@ const styles = StyleSheet.create({
     color: colors.text,
     textAlign: "center",
   },
-  title: { fontSize: 20, fontWeight: "700", color: colors.text, textAlign: "center" },
+  title: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: colors.text,
+    textAlign: "center",
+  },
   subtle: { fontSize: 15, color: colors.subtle, textAlign: "center" },
   codeText: { fontSize: 13, color: colors.subtle, marginTop: 4 },
   nutriBadge: {
@@ -321,7 +328,11 @@ const styles = StyleSheet.create({
     width: "100%",
     alignItems: "center",
   },
-  primaryBtnText: { color: colors.primaryText, fontWeight: "700", fontSize: 16 },
+  primaryBtnText: {
+    color: colors.primaryText,
+    fontWeight: "700",
+    fontSize: 16,
+  },
   secondaryBtn: {
     borderWidth: 1.5,
     borderColor: colors.primary,

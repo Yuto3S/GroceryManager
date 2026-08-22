@@ -1,17 +1,17 @@
 // List screen: your grocery list. Add items by hand, check them off as you
 // buy them, and see what you've already bought.
 
-import React, { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
   FlatList,
   Image,
   KeyboardAvoidingView,
   Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { useGrocery } from "../state/GroceryStore";
 import { colors, nutriColors } from "../theme";
@@ -49,7 +49,10 @@ function Row({ item, onToggle, onRemove }) {
               <View
                 style={[
                   styles.nutriDot,
-                  { backgroundColor: nutriColors[item.nutriScore] || colors.subtle },
+                  {
+                    backgroundColor:
+                      nutriColors[item.nutriScore] || colors.subtle,
+                  },
                 ]}
               >
                 <Text style={styles.nutriDotText}>{item.nutriScore}</Text>
@@ -85,11 +88,15 @@ export default function ListScreen() {
 
   // Build a single sectioned data array for one FlatList.
   const data = useMemo(() => {
-    const out = [{ type: "header", key: "h-tobuy", label: `To buy (${toBuy.length})` }];
+    const out = [
+      { type: "header", key: "h-tobuy", label: `To buy (${toBuy.length})` },
+    ];
     if (toBuy.length === 0) {
       out.push({ type: "empty", key: "e-tobuy", label: "Nothing to buy yet." });
     } else {
-      toBuy.forEach((it) => out.push({ type: "item", key: it.id, item: it }));
+      for (const it of toBuy) {
+        out.push({ type: "item", key: it.id, item: it });
+      }
     }
     out.push({
       type: "header",
@@ -98,9 +105,15 @@ export default function ListScreen() {
       showClear: bought.length > 0,
     });
     if (bought.length === 0) {
-      out.push({ type: "empty", key: "e-bought", label: "Nothing bought yet." });
+      out.push({
+        type: "empty",
+        key: "e-bought",
+        label: "Nothing bought yet.",
+      });
     } else {
-      bought.forEach((it) => out.push({ type: "item", key: it.id, item: it }));
+      for (const it of bought) {
+        out.push({ type: "item", key: it.id, item: it });
+      }
     }
     return out;
   }, [toBuy, bought]);
@@ -121,7 +134,9 @@ export default function ListScreen() {
     if (row.type === "empty") {
       return <Text style={styles.emptyText}>{row.label}</Text>;
     }
-    return <Row item={row.item} onToggle={toggleBought} onRemove={removeItem} />;
+    return (
+      <Row item={row.item} onToggle={toggleBought} onRemove={removeItem} />
+    );
   };
 
   return (

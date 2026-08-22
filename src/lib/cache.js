@@ -19,9 +19,11 @@ export function capCache(cache, limit = MAX_CACHED_PRODUCTS) {
   if (keys.length <= limit) return cache;
 
   const next = { ...cache };
-  keys
+  const oldest = keys
     .sort((a, b) => (next[a]?.cachedAt ?? 0) - (next[b]?.cachedAt ?? 0))
-    .slice(0, keys.length - limit)
-    .forEach((k) => delete next[k]);
+    .slice(0, keys.length - limit);
+  for (const k of oldest) {
+    delete next[k];
+  }
   return next;
 }

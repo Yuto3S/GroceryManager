@@ -16,7 +16,9 @@ const payload = (productOverrides = {}) => ({
 });
 
 function mockResponse(body, { ok = true, status = 200 } = {}) {
-  global.fetch = jest.fn().mockResolvedValue({ ok, status, json: async () => body });
+  global.fetch = jest
+    .fn()
+    .mockResolvedValue({ ok, status, json: async () => body });
 }
 
 beforeEach(() => {
@@ -60,7 +62,9 @@ describe("lookupProduct", () => {
     });
 
     it("keeps a plain https URL", async () => {
-      mockResponse(payload({ image_front_small_url: "https://ok.example/x.jpg" }));
+      mockResponse(
+        payload({ image_front_small_url: "https://ok.example/x.jpg" }),
+      );
       await expect(lookupProduct(BARCODE)).resolves.toMatchObject({
         imageUrl: "https://ok.example/x.jpg",
       });
@@ -68,7 +72,9 @@ describe("lookupProduct", () => {
   });
 
   it("refuses a non-numeric barcode without hitting the network", async () => {
-    await expect(lookupProduct("https://evil.example/steal")).resolves.toBeNull();
+    await expect(
+      lookupProduct("https://evil.example/steal"),
+    ).resolves.toBeNull();
     expect(global.fetch).not.toHaveBeenCalled();
   });
 

@@ -46,10 +46,9 @@ export async function lookupProduct(barcode) {
   // we never forward arbitrary scanned text to a third-party server.
   if (!/^\d{8,14}$/.test(barcode)) return null;
 
-  const url =
-    `https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(
-      barcode
-    )}.json?fields=${FIELDS}`;
+  const url = `https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(
+    barcode,
+  )}.json?fields=${FIELDS}`;
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);

@@ -1,20 +1,20 @@
 // App entry: a simple two-tab layout (Scan / List) with no extra navigation
 // library, wrapped in the grocery state provider.
 
-import React, { useState } from "react";
+import { StatusBar } from "expo-status-bar";
+import { useState } from "react";
 import {
-  SafeAreaView,
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
   Platform,
   StatusBar as RNStatusBar,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
-import { StatusBar } from "expo-status-bar";
-import { GroceryProvider, useGrocery } from "./src/state/GroceryStore";
-import ScanScreen from "./src/screens/ScanScreen";
 import ListScreen from "./src/screens/ListScreen";
+import ScanScreen from "./src/screens/ScanScreen";
+import { GroceryProvider, useGrocery } from "./src/state/GroceryStore";
 import { colors } from "./src/theme";
 
 const TABS = [

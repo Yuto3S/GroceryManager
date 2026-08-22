@@ -2,14 +2,14 @@
 // Everything is persisted to the device with AsyncStorage, so it survives
 // closing the app and works offline.
 
-import React, {
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useReducer,
-  useCallback,
 } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { capCache } from "../lib/cache";
 
 const LIST_KEY = "@grocery/list/v1";
@@ -50,7 +50,7 @@ function reducer(state, action) {
                 bought: !it.bought,
                 boughtAt: !it.bought ? Date.now() : null,
               }
-            : it
+            : it,
         ),
       };
 
@@ -107,17 +107,16 @@ export function GroceryProvider({ children }) {
   useEffect(() => {
     if (!state.loaded) return;
     AsyncStorage.setItem(LIST_KEY, JSON.stringify(state.items)).catch((e) =>
-      console.warn("Failed to save list", e)
+      console.warn("Failed to save list", e),
     );
   }, [state.items, state.loaded]);
 
   // Persist the product cache whenever it changes.
   useEffect(() => {
     if (!state.loaded) return;
-    AsyncStorage.setItem(
-      CACHE_KEY,
-      JSON.stringify(state.productCache)
-    ).catch((e) => console.warn("Failed to save cache", e));
+    AsyncStorage.setItem(CACHE_KEY, JSON.stringify(state.productCache)).catch(
+      (e) => console.warn("Failed to save cache", e),
+    );
   }, [state.productCache, state.loaded]);
 
   // --- Actions exposed to the rest of the app ---

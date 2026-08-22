@@ -22,8 +22,9 @@ building it with Claude Code.
 
 You don't need Xcode or Android Studio to try it.
 
-1. Install **Node.js 20.19.4+** if you don't have it (React Native 0.86 wants
-   `^20.19.4 || ^22.13.0 || ^24.3.0 || >=25`).
+1. Install **Node.js 22.13+** if you don't have it. React Native 0.86 would
+   accept `^20.19.4` too, but the pinned `pnpm@11.22.0` requires `>=22.13`, so
+   22.13 is the real floor for this project. CI runs exactly that version.
 2. In this folder, install dependencies with **pnpm** — this project pins
    `pnpm@11.22.0` and the lockfile is authoritative:
    ```bash

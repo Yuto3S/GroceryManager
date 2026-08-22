@@ -81,6 +81,49 @@ and `Cupboard` on first run.
 - **THEN** it is available for selection on every subsequent add
 - **AND** existing entries are unaffected
 
+### Requirement: Removing a location never orphans the entries in it
+
+The system SHALL allow locations to be added, renamed and removed. Removing a
+location that still holds entries SHALL require the user to nominate a
+destination location; those entries SHALL be reassigned to it before the removed
+location is tombstoned. Removal SHALL NOT delete entries and SHALL NOT leave an
+entry pointing at a removed location.
+
+The system SHALL refuse to remove the last remaining location, since there would
+be nowhere for entries to go.
+
+Renaming a location SHALL NOT change which entries belong to it — entries
+reference a location by identity, not by name.
+
+#### Scenario: Removing an empty location
+
+- **WHEN** the user removes a location holding no entries
+- **THEN** it is removed without further prompting
+- **AND** it no longer appears as a choice when adding an entry
+
+#### Scenario: Removing a location that still holds entries
+
+- **WHEN** the user removes a location holding entries
+- **THEN** they are asked where those entries should go
+- **AND** on confirming, every entry in it — including out-of-stock ones —
+  references the nominated location
+- **AND** no entry is deleted
+
+#### Scenario: Cancelling the removal
+
+- **WHEN** the user is asked for a destination and cancels
+- **THEN** the location and its entries are unchanged
+
+#### Scenario: The last location cannot be removed
+
+- **WHEN** only one location exists
+- **THEN** removing it is refused
+
+#### Scenario: Renaming keeps the entries
+
+- **WHEN** the user renames `Cupboard` to `Pantry shelf`
+- **THEN** the entries that were in it are still in it
+
 ### Requirement: The pantry groups by location and sorts alphabetically
 
 The pantry view SHALL group entries by location by default, and SHALL sort

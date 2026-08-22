@@ -8,6 +8,7 @@
     "expo": "~57.0.14",
     "expo-camera": "^57.0.3",
     "expo-constants": "~57.0.12",
+    "expo-crypto": "~57.0.1",
     "expo-linking": "~57.0.6",
     "expo-router": "~57.0.13",
     "expo-status-bar": "~57.0.1",
@@ -42,6 +43,9 @@
     "collectCoverageFrom": [
       "src/**/*.{ts,tsx}",
       "!src/**/__tests__/**"
+    ],
+    "setupFiles": [
+      "<rootDir>/jest.setup.ts"
     ]
   },
   "devDependencies": {

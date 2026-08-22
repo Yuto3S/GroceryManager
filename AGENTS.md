@@ -1,7 +1,11 @@
 # Project: Grocery Scanner (Expo / React Native)
 
-A barcode-scanning grocery-list app. Scan a product → look it up on Open Food
-Facts → add to a list → check off as bought. See README.md for the full tour.
+A home pantry inventory. Scan a product (or type a name) → look it up on Open
+Food Facts → record how much of it you have and where it is kept → tap it down
+as you cook. See README.md for the full tour.
+
+The shopping list this started as is gone: `bought` has no meaning in an
+inventory. Re-buy suggestions return later, built on real consumption data.
 
 ## Ground rules for changes
 
@@ -13,8 +17,11 @@ Facts → add to a list → check off as bought. See README.md for the full tour
   npm `latest` — TypeScript 7 is out and ahead of Expo.
 - Barcode scanning uses **`expo-camera`** (`CameraView` + `onBarcodeScanned`),
   not the deprecated `expo-barcode-scanner`.
-- Persistence is **AsyncStorage**, wrapped in `src/state/GroceryStore.js`.
-  Add new persisted fields there; don't scatter storage calls around.
+- Persistence is **AsyncStorage**, wrapped in `src/state/PantryStore.tsx`.
+  Add new persisted fields there; don't scatter storage calls around. The
+  reducer underneath it (`src/state/pantryReducer.ts`) is pure — no React, no
+  storage, no clock, no id generator. `now` and fresh UUIDs arrive on the
+  action, which is what makes it testable without rendering anything.
 - Keep the app runnable in **Expo Go** (no custom native modules) unless the
   user explicitly wants to move to a dev build.
 - To fix version mismatches, use `npx expo install --fix`, not manual bumps.
@@ -94,13 +101,27 @@ Facts → add to a list → check off as bought. See README.md for the full tour
   relying on ambient types. That's a deliberate dependency choice: `@types/jest`
   would be another package to keep in step with Jest, and `@jest/globals` ships
   with Jest itself.
-- Pure, security-relevant logic lives in `src/lib/` precisely so it's testable
-  without a native build: `barcode.ts` (what we're willing to send to Open Food
-  Facts) and `cache.ts` (bounding the offline cache).
+- Pure logic lives in `src/lib/` precisely so it's testable without a native
+  build: `barcode.ts` (what we're willing to send to Open Food Facts),
+  `cache.ts` (bounding the offline cache), `quantity.ts` (parsing untrusted
+  quantity text), `identity.ts` (stable catalogue keys), `merge.ts` (whether a
+  duplicate joins an existing entry), `pantry.ts` (consume/restock/clamp),
+  `grouping.ts` and `catalogue.ts` (the list and picker selectors).
 - `extractBarcode` takes `unknown`, not `string`, so the "what if the scanner
   hands us a number" tests stay reachable. Keep it that way.
 - `react-test-renderer` is deprecated and doesn't support React 19 — use
   `@testing-library/react-native` for component tests.
+- **RNTL v14's API is async.** `render`, `fireEvent` and `fireEvent.press` all
+  return promises, because React 19 made `act` async. A missing `await` does not
+  fail loudly — it leaves `screen` unset and every query reports "`render`
+  function has not been called". Never fire several events with `Promise.all`
+  either: overlapping `act` calls corrupt the renderer for the *next* test, not
+  the one doing it. And let anything in flight settle before a test ends, or the
+  component updates during teardown and breaks whatever runs next.
+- `jest.setup.ts` mocks the three native modules that cannot run under Jest:
+  AsyncStorage (the shipped in-memory mock, so the read-write round trip is
+  real), `expo-crypto` (counter ids, so assertions can name an entry), and
+  `expo-camera` (a view that hands the test a way to say "a barcode was seen").
 - **Detox is not an option while the app targets Expo Go.** It needs the native
   `ios/`/`android/` projects, so it requires `expo prebuild`. That would also
   invalidate the SECURITY.md rationale for accepting GHSA-w5hq-g745-h8pq, which
@@ -127,15 +148,29 @@ Facts → add to a list → check off as bought. See README.md for the full tour
 
 ## Architecture
 
-- `src/state/GroceryStore.tsx` — single source of truth (reducer + context).
-  All list mutations and the offline product cache live here. `Action` is a
-  discriminated union and the reducer's `default` branch assigns to `never`, so
-  adding a variant without handling it fails to compile.
+- `src/state/pantryReducer.ts` — the state machine, pure and directly tested.
+  `Action` is a discriminated union and the `default` branch assigns to `never`,
+  so adding a variant without handling it fails to compile.
+- `src/state/PantryStore.tsx` — the provider around it: the clock, the id
+  generator and AsyncStorage, and nothing else. That boundary is what would let
+  a sync engine slot in underneath.
 - `src/api/openFoodFacts.ts` — the only place that talks to the network.
-- `src/types.ts` — the shared domain types (`Product`, `GroceryItem`,
-  `ProductCache`). `Product` is the *normalized* shape, deliberately: see the
-  note under "Dependency policy" about untrusted data.
-- Screens are presentational and read/write through the `useGrocery()` hook.
+- `src/types.ts` — the shared domain types. `Product` is the *normalized* shape,
+  deliberately: see the note under "Dependency policy" about untrusted data.
+  Persisted records extend `Tracked` (UUID, `createdAt`/`updatedAt`, `deletedAt`
+  tombstone) so multi-device sync stays possible without migrating user data.
+- **Two stores over the same products, with opposite retention policies.** The
+  `productCache` is a capped offline lookup cache (`capCache`, 300). The
+  *catalogue* never evicts — a catalogue that forgets drops your staples out of
+  "things you've bought before" precisely because you bought them long ago.
+- Calendar dates (expiry) are `YYYY-MM-DD`; instants (`createdAt`, `updatedAt`)
+  are UTC epoch milliseconds. `new Date("2026-08-27")` parses as UTC midnight
+  and renders a day earlier west of Greenwich — build from local components, and
+  count calendar days rather than dividing millisecond differences.
+- Screens are presentational and read/write through the `usePantry()` hook.
+  Anything the store hydrates asynchronously must be read as a fallback, not
+  frozen into a `useState` initialiser — those run before the first load and
+  would silently discard the user's remembered defaults.
 
 ## Quick start
 

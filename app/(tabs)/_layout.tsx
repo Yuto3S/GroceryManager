@@ -1,13 +1,11 @@
 // The tab group: the app header, the two tabs, and the tab bar underneath.
 //
 // This uses Expo Router's *headless* tabs (`expo-router/ui`) rather than the
-// batteries-included `<Tabs>` navigator. The headless version renders the tab
-// bar we write ourselves, so the bar App.tsx used to draw — glyph, label, and
-// the "(n)" still-to-buy count — survives the migration pixel for pixel. The
-// standard navigator would have replaced it with React Navigation's own bar.
+// batteries-included `<Tabs>` navigator, so the tab bar is one we write and can
+// hang a count off.
 //
 // `(tabs)` is a route *group*: the parentheses keep it out of the URL, so these
-// screens live at `/` and `/list` rather than `/tabs/...`.
+// screens live at `/` and `/add` rather than `/tabs/...`.
 
 import { usePathname } from "expo-router";
 import { TabList, TabSlot, Tabs, TabTrigger } from "expo-router/ui";
@@ -19,41 +17,47 @@ import {
   Text,
   View,
 } from "react-native";
-import { useGrocery } from "../../src/state/GroceryStore";
+import { isVisible } from "../../src/lib/pantry";
+import { usePantry } from "../../src/state/PantryStore";
 import { colors } from "../../src/theme";
 
 export default function TabsLayout() {
-  const { items } = useGrocery();
-  const toBuyCount = items.filter((i) => !i.bought).length;
+  const { entries } = usePantry();
+  // Replaces the old still-to-buy badge. A count of what is actually in the
+  // pantry is the number that means something now — and it is the one that
+  // makes bootstrapping feel like it is going somewhere.
+  const inStock = Object.values(entries).filter(isVisible).length;
 
   // Which tab is active is derived from the URL rather than held in state.
   // That is the whole point of routing: the address bar on web and the
   // navigation state on device are the same source of truth.
   const pathname = usePathname();
-  const onScan = pathname === "/";
-  const onList = pathname === "/list";
+  const onPantry = pathname === "/";
+  const onAdd = pathname === "/add";
 
   return (
     <SafeAreaView style={styles.root}>
       <Tabs style={styles.tabs}>
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Grocery Scanner</Text>
+          <Text style={styles.headerTitle}>Pantry</Text>
         </View>
 
         <TabSlot style={styles.screen} />
 
         <TabList style={styles.tabBar}>
-          <TabTrigger name="scan" href="/" style={styles.tab}>
-            <Text style={[styles.tabIcon, onScan && styles.tabActive]}>▣</Text>
-            <Text style={[styles.tabLabel, onScan && styles.tabActive]}>
-              Scan
+          <TabTrigger name="pantry" href="/" style={styles.tab}>
+            <Text style={[styles.tabIcon, onPantry && styles.tabActive]}>
+              ☰
+            </Text>
+            <Text style={[styles.tabLabel, onPantry && styles.tabActive]}>
+              {inStock > 0 ? `Pantry (${inStock})` : "Pantry"}
             </Text>
           </TabTrigger>
 
-          <TabTrigger name="list" href="/list" style={styles.tab}>
-            <Text style={[styles.tabIcon, onList && styles.tabActive]}>☰</Text>
-            <Text style={[styles.tabLabel, onList && styles.tabActive]}>
-              {toBuyCount > 0 ? `List (${toBuyCount})` : "List"}
+          <TabTrigger name="add" href="/add" style={styles.tab}>
+            <Text style={[styles.tabIcon, onAdd && styles.tabActive]}>＋</Text>
+            <Text style={[styles.tabLabel, onAdd && styles.tabActive]}>
+              Add
             </Text>
           </TabTrigger>
         </TabList>

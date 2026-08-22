@@ -26,6 +26,7 @@ const payload = (productOverrides: Record<string, unknown> = {}) => ({
     quantity: "400 g",
     image_front_small_url: "https://images.openfoodfacts.org/front.jpg",
     nutriscore_grade: "e",
+    categories: "Spreads, Sweet spreads, Hazelnut spreads",
     ...productOverrides,
   },
 });
@@ -54,6 +55,47 @@ describe("lookupProduct", () => {
       quantity: "400 g",
       imageUrl: "https://images.openfoodfacts.org/front.jpg",
       nutriScore: "E",
+      category: "Hazelnut spreads",
+    });
+  });
+
+  describe("untrusted category tags", () => {
+    // `categories` runs broad to specific. The specific end is what a person
+    // would call the thing, and what the pantry groups by.
+    it("takes the most specific tag", async () => {
+      mockResponse(
+        payload({ categories: "Plant-based foods, Cereals, Pasta, Spaghetti" }),
+      );
+      await expect(lookupProduct(BARCODE)).resolves.toMatchObject({
+        category: "Spaghetti",
+      });
+    });
+
+    it("strips a language prefix", async () => {
+      mockResponse(payload({ categories: "en:dairies, en:yogurts" }));
+      await expect(lookupProduct(BARCODE)).resolves.toMatchObject({
+        category: "yogurts",
+      });
+    });
+
+    it("caps the length so a heading cannot become a paragraph", async () => {
+      mockResponse(payload({ categories: "x".repeat(500) }));
+      const product = await lookupProduct(BARCODE);
+      expect(product?.category).toHaveLength(40);
+    });
+
+    it.each([
+      ["missing", undefined],
+      ["null", null],
+      ["a number", 7],
+      ["an object", {}],
+      ["empty", ""],
+      ["separators only", " , , "],
+    ])("is null when categories is %s", async (_label, categories) => {
+      mockResponse(payload({ categories }));
+      await expect(lookupProduct(BARCODE)).resolves.toMatchObject({
+        category: null,
+      });
     });
   });
 

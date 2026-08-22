@@ -5,11 +5,11 @@
 
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { GroceryProvider } from "../src/state/GroceryStore";
+import { PantryProvider } from "../src/state/PantryStore";
 
 export default function RootLayout() {
   return (
-    <GroceryProvider>
+    <PantryProvider>
       <StatusBar style="dark" />
       {/*
         No header at this level — the tab group draws its own, the same one
@@ -17,6 +17,6 @@ export default function RootLayout() {
         back in per-route.
       */}
       <Stack screenOptions={{ headerShown: false }} />
-    </GroceryProvider>
+    </PantryProvider>
   );
 }

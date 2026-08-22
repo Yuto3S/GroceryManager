@@ -18,7 +18,8 @@
       }
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
     },
     "plugins": [
       [
@@ -26,7 +27,12 @@
         {
           "cameraPermission": "Allow Grocery Scanner to use the camera to read product barcodes."
         }
-      ]
-    ]
+      ],
+      "expo-router"
+    ],
+    "scheme": "groceryscanner",
+    "experiments": {
+      "typedRoutes": true
+    }
   }
 }

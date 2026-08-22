@@ -3,8 +3,19 @@ import { lookupProduct } from "../openFoodFacts";
 
 const BARCODE = "3017620422003";
 
-const fetchMock = jest.fn<typeof fetch>();
-global.fetch = fetchMock;
+// `fetch` is declared three times over in this program — by lib.dom, by
+// @types/node (pulled in through @jest/globals) and by React Native itself.
+// `jest.fn<typeof fetch>()` collapses that overload set to whichever
+// declaration TypeScript loaded last, which depends on file ordering rather
+// than on anything in this test. Naming the one signature we actually use
+// keeps the mock stable no matter how the program is assembled.
+type Fetch = (
+  input: RequestInfo | URL,
+  init?: RequestInit,
+) => Promise<Response>;
+
+const fetchMock = jest.fn<Fetch>();
+global.fetch = fetchMock as typeof fetch;
 
 const payload = (productOverrides: Record<string, unknown> = {}) => ({
   status: 1,

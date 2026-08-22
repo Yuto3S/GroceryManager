@@ -12,6 +12,10 @@
     "noFallthroughCasesInSwitch": true,
     "verbatimModuleSyntax": true
   },
-  "include": ["**/*.ts", "**/*.tsx"],
+  // `.expo/types` holds the route map Expo Router generates from the app/
+  // directory when `experiments.typedRoutes` is on — it is what makes a typo in
+  // an href a compile error. tsconfig glob patterns skip dot-directories, so it
+  // has to be listed explicitly; `**/*.ts` does not reach it.
+  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"],
   "exclude": ["node_modules"]
 }

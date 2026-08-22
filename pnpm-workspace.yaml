@@ -33,6 +33,33 @@ minimumReleaseAgeExclude:
   - 'expo-constants@57.0.12'
   - 'expo@57.0.14'
 
+# Pin a transitive native module to the version Expo Go actually ships.
+#
+# `@expo/ui` (a dependency of expo-router) declares `react-native-worklets: *`,
+# so pnpm's autoInstallPeers resolves it to the newest release — 0.11.4 at the
+# time of writing. Two things are wrong with that:
+#
+#   1. Expo SDK 57 bundles worklets 0.10.1 (see
+#      node_modules/expo/bundledNativeModules.json). Worklets is a native
+#      module, so JS 0.11.x talking to Expo Go's native 0.10.1 is a startup
+#      crash, not a warning.
+#   2. `expo-modules-core` declares the peer as
+#      `^0.7.4 || ^0.8.0 || ^0.9.0 || ^0.10.0` — 0.11.4 satisfies neither.
+#
+# We never import @expo/ui or worklets ourselves; this exists purely to stop an
+# unused transitive from breaking the app in Expo Go. Revisit on every SDK
+# upgrade: the correct value is whatever bundledNativeModules.json says.
+#
+# `@react-native/metro-config` is the same story one layer down: worklets
+# declares it as `*`, so pnpm reaches for 0.87.0, while
+# `@react-native/community-cli-plugin@0.86.2` pins it to exactly 0.86.2. The
+# @react-native/* packages ship as a matched set with react-native itself, so
+# the right value is whatever `react-native` is — 0.86.2 here. Bundler-only, but
+# a Metro config from the wrong release train is not worth debugging later.
+overrides:
+  react-native-worklets: 0.10.1
+  '@react-native/metro-config': 0.86.2
+
 # Note on build scripts: `strictDepBuilds` is on by default, so an install FAILS
 # if any dependency has an unreviewed build script. Nothing in this tree needs to
 # build. If pnpm ever asks you to approve a build, treat that as a finding, not a

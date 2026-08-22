@@ -88,6 +88,49 @@ See "Dependency policy" in `AGENTS.md`. The controls are:
 - **Registry only** — never add a git dependency: registry tarballs skip their
   `prepare` scripts, git dependencies run them.
 
+### Version pins made to satisfy the cooldown (2026-08-22)
+
+Adding Expo Router hit the cooldown head-on. `npx expo install` asked for
+`expo-router@~57.0.15`, `expo-constants@~57.0.13` and `expo-linking@~57.0.7`,
+all published 2026-08-20 — inside the 7-day window — so the install failed with
+`ERR_PNPM_NO_MATURE_MATCHING_VERSION`. The `~` ranges meant no older version
+satisfied them either.
+
+**Resolved by installing the newest versions that had already aged past the
+cooldown**, one or two patches behind: `expo-router@~57.0.13`,
+`expo-constants@~57.0.11` (resolved to the already-grandfathered 57.0.12) and
+`expo-linking@~57.0.6`. No `minimumReleaseAgeExclude` entry was added — that
+list is meant to shrink, and exempting the exact packages the cooldown is there
+to protect would defeat it. This is the cooldown working as designed, not a
+workaround for it.
+
+The trade-off is that these sit below what the SDK 57 version map wants, so
+`expo start` prints an update notice and **`npx expo install --fix` will fail
+until 2026-08-27**, when the blocked versions age past the window. One
+`--fix` after that date catches everything up.
+
+### `overrides` in `pnpm-workspace.yaml`
+
+Two transitive packages are pinned, both because a `*` peer range let pnpm
+resolve something the app cannot actually run against:
+
+- **`react-native-worklets: 0.10.1`** — `@expo/ui` (a dependency of
+  expo-router) declares the peer as `*`, so pnpm auto-installed 0.11.4. Expo Go
+  for SDK 57 ships worklets **0.10.1** natively
+  (`node_modules/expo/bundledNativeModules.json`), and `expo-modules-core`
+  declares the peer as `^0.7.4 || ^0.8.0 || ^0.9.0 || ^0.10.0` — 0.11.4
+  satisfies neither. A JS/native worklets mismatch is a startup crash, not a
+  warning. Nothing in this codebase imports `@expo/ui` or worklets; the pin
+  exists so an unused transitive cannot break the app.
+- **`@react-native/metro-config: 0.86.2`** — same shape one layer down.
+  Worklets declares it as `*`, pnpm reached for 0.87.0, while
+  `@react-native/community-cli-plugin@0.86.2` pins it to exactly 0.86.2. The
+  `@react-native/*` packages ship as a matched set with `react-native` itself.
+
+Both are exact pins, both aged well past the cooldown, and `pnpm peers check`
+is clean with them in place. **Revisit on every SDK upgrade** — the correct
+worklets value is whatever `bundledNativeModules.json` says.
+
 ## Tooling outside the dependency policy
 
 The OpenSpec CLI (`@fission-ai/openspec`) is installed **globally**, not as a

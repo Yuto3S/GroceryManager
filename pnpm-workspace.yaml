@@ -1,0 +1,50 @@
+# pnpm settings — https://pnpm.io/settings
+
+# Metro doesn't reliably follow pnpm's symlinked virtual store. `create-expo-app`
+# defaults pnpm projects to `hoisted` for this reason, so we match it: a flat
+# node_modules, the same shape npm produced.
+nodeLinker: hoisted
+
+# Supply-chain cooldown: refuse any version published less than 7 days ago —
+# long enough that most compromised releases are caught and unpublished first.
+# pnpm applies this to TRANSITIVE dependencies at resolution time, and re-checks
+# every lockfile entry on install (the "Lockfile passes supply-chain policies"
+# line). Value is in MINUTES.  10080 = 7 days.  14400 = 10 days.
+minimumReleaseAge: 10080
+
+# Written by pnpm during the npm -> pnpm migration: `pnpm import` carried these
+# versions over from package-lock.json, and rather than fail the install pnpm
+# grandfathered them out of the cooldown.
+#
+# REVIEWED AND ACCEPTED. They are first-party Expo SDK 57 packages that were
+# already installed and running before the migration, so the cooldown could not
+# have protected against them retroactively. Every entry is pinned to an exact
+# version, so the exemption does not extend forward — when expo publishes
+# 57.0.15 the full cooldown applies to it again.
+#
+# Don't add to this list without recording the reason in SECURITY.md.
+minimumReleaseAgeExclude:
+  - '@expo/cli@57.0.16'
+  - '@expo/config@57.0.8'
+  - '@expo/fingerprint@0.20.8'
+  - '@expo/inline-modules@0.1.6'
+  - '@expo/log-box@57.0.3'
+  - 'expo-asset@57.0.12'
+  - 'expo-constants@57.0.12'
+  - 'expo@57.0.14'
+
+# Note on build scripts: `strictDepBuilds` is on by default, so an install FAILS
+# if any dependency has an unreviewed build script. Nothing in this tree needs to
+# build. If pnpm ever asks you to approve a build, treat that as a finding, not a
+# prompt to click through.
+
+# Advisories reviewed and accepted; `pnpm audit` fails on anything else.
+# Rationale for each is in SECURITY.md — re-check on every Expo SDK upgrade,
+# and no later than 2026-11-17.
+audit:
+  ignore:
+    # image-size via metro — DoS on malformed ICNS/JXL/HEIF, bundler only.
+    - GHSA-w3rx-r6r6-pgpr
+    - GHSA-5p2g-fcmc-qvqq
+    # uuid via xcode -> @expo/config-plugins — runs during prebuild, never here.
+    - GHSA-w5hq-g745-h8pq

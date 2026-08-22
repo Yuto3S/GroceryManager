@@ -59,13 +59,31 @@ bundler, so it needs verification with a real `npx expo start` run.
 So that these two known findings don't hide a *new* one, run:
 
 ```bash
-npm run audit:check
+pnpm audit
 ```
 
-It fails only on advisories that aren't in the allowlist in
-`scripts/audit-check.sh`. Review the allowlist on the date noted there.
+It fails only on advisories outside the `audit.ignore` allowlist in
+`pnpm-workspace.yaml`. Review that list on the date noted beside it.
 
 ## Dependency policy
 
-See "Dependency policy" in `AGENTS.md`: new packages must be at least 7 days
-old, installs skip lifecycle scripts, and CI/local installs use `npm ci`.
+See "Dependency policy" in `AGENTS.md`. The controls are:
+
+- **Cooldown** — `minimumReleaseAge: 10080` in `pnpm-workspace.yaml` refuses any
+  version published less than 7 days ago, transitive dependencies included, and
+  re-verified against every lockfile entry on install.
+- **Cooldown exemptions** — `minimumReleaseAgeExclude` holds 8 Expo packages
+  (`expo@57.0.14`, `@expo/cli@57.0.16`, `@expo/config@57.0.8`,
+  `@expo/fingerprint@0.20.8`, `@expo/inline-modules@0.1.6`,
+  `@expo/log-box@57.0.3`, `expo-asset@57.0.12`, `expo-constants@57.0.12`).
+  pnpm wrote these itself during the npm→pnpm migration so `pnpm import`
+  wouldn't fail on versions already pinned by `package-lock.json`. **Reviewed
+  and accepted:** all eight are first-party Expo SDK 57 packages that were
+  already installed and running before the cooldown existed, so it could not
+  have protected against them retroactively. Each is pinned to an exact
+  version, so the exemption does not carry forward to future releases.
+- **No install-time execution** — `strictDepBuilds` is on by default, so an
+  install fails outright if any dependency has an unreviewed build script.
+- **Reproducibility** — `pnpm install --frozen-lockfile` everywhere, including CI.
+- **Registry only** — never add a git dependency: registry tarballs skip their
+  `prepare` scripts, git dependencies run them.

@@ -17,28 +17,37 @@ Facts → add to a list → check off as bought. See README.md for the full tour
 
 ## Dependency policy
 
-- **7-day cooldown.** Never install a package version published less than 7
-  days ago — that's the window in which most compromised releases get caught
-  and unpublished. Add packages with `npm run add -- <package>` (wraps
-  `npm install --before=<7 days ago> --ignore-scripts`), not bare
-  `npm install <package>`. Verify with `npm run deps:age`.
-- `npx expo install` does **not** honour the cooldown — it resolves against
-  Expo's SDK manifest and calls npm itself. That's an accepted exception for
-  Expo-owned packages; apply the cooldown to everything else.
-- Reproducible installs use `npm ci`, which installs exactly what the lockfile
-  pins. Commit `package.json` and `package-lock.json` together.
-- `npm audit` has two known, accepted findings — run `npm run audit:check`
-  instead, which fails only on new ones. Never run `npm audit fix --force`: it
-  "fixes" them by downgrading to `expo@53`. Rationale in SECURITY.md.
+- **Package manager is pnpm.** `nodeLinker: hoisted` in `pnpm-workspace.yaml`
+  is required — Metro doesn't reliably follow pnpm's symlinked store, and
+  `create-expo-app` defaults pnpm projects to hoisted for that reason.
+- **7-day cooldown**, enforced by `minimumReleaseAge: 10080` (minutes) in
+  `pnpm-workspace.yaml`. pnpm applies it to transitive dependencies at
+  resolution and re-checks every lockfile entry on install, so there is no
+  wrapper script to remember and nothing custom to maintain.
+- `minimumReleaseAgeExclude` in that file was written by pnpm during the
+  npm→pnpm migration to grandfather 8 already-pinned Expo versions. Entries are
+  pinned to exact versions, so they don't cover future releases. Prune them once
+  each version has aged past the cooldown; see SECURITY.md.
+- pnpm blocks dependency lifecycle scripts by default (`strictDepBuilds`), so
+  an install *fails* on unreviewed build scripts. If pnpm ever asks you to
+  approve a build, treat that as a finding, not a prompt to click through.
+- Accepted advisories live in `audit.ignore` in `pnpm-workspace.yaml`; run
+  `pnpm audit`. Never add a git dependency — the pre-commit hook rejects any
+  lockfile entry that isn't resolved by integrity hash.
+- Reproducible installs use `pnpm install --frozen-lockfile`, which fails
+  rather than re-resolving. Commit `package.json` and `pnpm-lock.yaml` together.
+- Never run `npm audit fix --force`: it "fixes" the two accepted advisories by
+  downgrading to `expo@53`. Rationale in SECURITY.md.
 - Open Food Facts data is untrusted (anyone can edit it). Normalize it in
   `src/api/openFoodFacts.js`; image URLs must be `https://` only.
 - **Never install a git/GitHub dependency.** Registry tarballs don't run their
   `prepare` scripts; git dependencies do. Every package must resolve to
   `registry.npmjs.org` — 46 packages in this tree ship a `prepare`/`prepack`
   script that stays dormant only because of that.
-- Don't invoke package-provided executables (`npx <tool>`) to check your work;
-  ask first. Running the app itself (`npx expo start`) is the exception, since
-  there's no other way to exercise it.
+- These verification commands are pre-approved, run them freely:
+  `pnpm test`, `pnpm run lint`, `pnpm run lint:fix`, `pnpm audit`.
+  Ask before invoking any other package executable. Running the app
+  (`pnpm exec expo start`) is fine when the user asks to see it working.
 
 ## Testing
 
@@ -54,6 +63,18 @@ Facts → add to a list → check off as bought. See README.md for the full tour
   invalidate the SECURITY.md rationale for accepting GHSA-w5hq-g745-h8pq, which
   rests on prebuild never running. Expo documents Maestro for E2E; it still
   needs a dev build but adds no npm packages.
+
+## Code style
+
+- **Biome** does linting, formatting and import sorting — one tool, config in
+  `biome.json`. `npm run lint` to check, `npm run lint:fix` to fix.
+- Chosen over ESLint + Prettier deliberately: it's ~2 packages with no install
+  scripts, so pnpm's `strictDepBuilds` gate stays happy. The trade-off is no
+  React Native-specific rules, which `eslint-config-expo` would have given.
+- Biome's default `indentStyle` is `tab`; this codebase uses 2 spaces. Keep
+  `"indentStyle": "space"` in `biome.json` or every file will churn.
+- The pre-commit hook reports Biome findings but never rewrites files
+  mid-commit.
 
 ## Architecture
 

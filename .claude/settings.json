@@ -7,6 +7,9 @@
       "Bash(pnpm test)",
       "Bash(pnpm run lint)",
       "Bash(pnpm run lint:fix)",
+      "Bash(pnpm run typecheck)",
+      "Bash(pnpm run check:no-js)",
+      "Bash(pnpm run check)",
       "Bash(pnpm audit)",
       "Bash(openspec:*)"
     ]

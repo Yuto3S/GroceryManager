@@ -78,10 +78,11 @@ Facts → add to a list → check off as bought. See README.md for the full tour
   `registry.npmjs.org` — 46 packages in this tree ship a `prepare`/`prepack`
   script that stays dormant only because of that.
 - These verification commands are pre-approved, run them freely:
-  `pnpm test`, `pnpm run lint`, `pnpm run lint:fix`, `pnpm audit`, and
-  `openspec` (any subcommand — the allowlist rule is `Bash(openspec:*)`).
-  `pnpm run typecheck`, `check:no-js` and `check` are *not* in
-  `.claude/settings.json` yet, so they still prompt.
+  `pnpm test`, `pnpm run lint`, `pnpm run lint:fix`, `pnpm run typecheck`,
+  `pnpm run check:no-js`, `pnpm run check`, `pnpm audit`, and `openspec` (any
+  subcommand — the allowlist rule is `Bash(openspec:*)`). They are all
+  read-only, and the list lives in `.claude/settings.json`, which is committed —
+  so it applies to everyone who clones, not just the machine that added it.
   Ask before invoking any other package executable. Running the app
   (`pnpm exec expo start`) is fine when the user asks to see it working.
 

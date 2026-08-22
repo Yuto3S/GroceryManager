@@ -22,14 +22,16 @@ building it with Claude Code.
 
 You don't need Xcode or Android Studio to try it.
 
-1. Install **Node.js** (18+) if you don't have it.
-2. In this folder, install dependencies:
+1. Install **Node.js 20.19.4+** if you don't have it (React Native 0.86 wants
+   `^20.19.4 || ^22.13.0 || ^24.3.0 || >=25`).
+2. In this folder, install dependencies with **pnpm** — this project pins
+   `pnpm@11.22.0` and the lockfile is authoritative:
    ```bash
-   npm install
+   pnpm install --frozen-lockfile
    ```
 3. Start the dev server:
    ```bash
-   npx expo start
+   pnpm exec expo start
    ```
 4. On your phone, install **Expo Go** (App Store / Play Store), open it, and
    scan the QR code shown in your terminal. The app loads live on your phone —
@@ -63,6 +65,22 @@ GET https://world.openfoodfacts.org/api/v2/product/{barcode}.json
 If a barcode isn't found, the app tells you and you can still add the item by
 hand. If you want to contribute missing products, Open Food Facts lets anyone
 add them via their app.
+
+## Building on it with Claude Code
+
+Changes here run through **OpenSpec**, a spec-driven workflow: you describe the
+idea, Claude writes a proposal (`proposal.md`, `design.md`, `tasks.md` and a
+spec delta) under `openspec/`, and only then implements it. The point is to
+agree on *what* gets built before any code appears.
+
+```bash
+npm install -g @fission-ai/openspec@1.10.0 --ignore-scripts   # one-time, global
+```
+
+Then, in Claude Code: `/opsx:propose "quantities per item"` → `/opsx:apply` →
+`/opsx:archive`. Use `/opsx:explore` first if the idea is still fuzzy. The
+skills and slash commands are generated into `.claude/` and are committed, so
+they work as soon as you clone — only the CLI itself needs installing.
 
 ## Ideas for next versions (good tasks for Claude Code)
 

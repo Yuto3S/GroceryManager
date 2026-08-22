@@ -15,6 +15,31 @@ Facts → add to a list → check off as bought. See README.md for the full tour
   user explicitly wants to move to a dev build.
 - To fix version mismatches, use `npx expo install --fix`, not manual bumps.
 
+## Spec-driven changes (OpenSpec)
+
+- Non-trivial work goes through **OpenSpec**: agree the spec before writing
+  code. `/opsx:propose "<idea>"` creates a change and its artifacts;
+  `/opsx:apply` implements it. `/opsx:explore` is the thinking-partner step for
+  when the requirement isn't clear yet, `/opsx:update` revises a proposal,
+  `/opsx:sync` folds delta specs into the main specs, and `/opsx:archive`
+  closes a finished change.
+- Specs and proposals live under `openspec/`. Each change carries
+  `proposal.md`, `design.md`, `tasks.md` and a `specs/` delta. **Commit them** —
+  they're the living record of why a change looks the way it does.
+- `.claude/skills/openspec-*/` and `.claude/commands/opsx/` are **generated**
+  (`generatedBy` is in their frontmatter). Don't hand-edit them, because
+  `openspec update` rewrites them wholesale. Project-specific guidance belongs
+  in `openspec/config.yaml` (`context:`, `rules:`, `operations:`), which is
+  hand-maintained and currently all commented-out scaffolding.
+- `openspec validate --all` before archiving; `openspec doctor` if the tool
+  starts behaving oddly.
+- The CLI is installed **globally**, not as a devDependency — deliberately, to
+  keep a dev-only tool out of `pnpm-lock.yaml`. The trade-off is that none of
+  the dependency controls below apply to it; see "Tooling outside the
+  dependency policy" in SECURITY.md before upgrading it.
+- Telemetry ships **on** and has been turned **off** (`telemetry.enabled` in
+  `~/.config/openspec/config.json`). Leave it off.
+
 ## Dependency policy
 
 - **Package manager is pnpm.** `nodeLinker: hoisted` in `pnpm-workspace.yaml`
@@ -45,13 +70,14 @@ Facts → add to a list → check off as bought. See README.md for the full tour
   `registry.npmjs.org` — 46 packages in this tree ship a `prepare`/`prepack`
   script that stays dormant only because of that.
 - These verification commands are pre-approved, run them freely:
-  `pnpm test`, `pnpm run lint`, `pnpm run lint:fix`, `pnpm audit`.
+  `pnpm test`, `pnpm run lint`, `pnpm run lint:fix`, `pnpm audit`, and
+  `openspec` (any subcommand — the allowlist rule is `Bash(openspec:*)`).
   Ask before invoking any other package executable. Running the app
   (`pnpm exec expo start`) is fine when the user asks to see it working.
 
 ## Testing
 
-- `npm test` runs Jest via the `jest-expo` preset. Unit tests only for now —
+- `pnpm test` runs Jest via the `jest-expo` preset. Unit tests only for now —
   E2E was deferred; see SECURITY.md and the note below on Detox.
 - Pure, security-relevant logic lives in `src/lib/` precisely so it's testable
   without a native build: `barcode.js` (what we're willing to send to Open Food
@@ -67,7 +93,7 @@ Facts → add to a list → check off as bought. See README.md for the full tour
 ## Code style
 
 - **Biome** does linting, formatting and import sorting — one tool, config in
-  `biome.json`. `npm run lint` to check, `npm run lint:fix` to fix.
+  `biome.json`. `pnpm run lint` to check, `pnpm run lint:fix` to fix.
 - Chosen over ESLint + Prettier deliberately: it's ~2 packages with no install
   scripts, so pnpm's `strictDepBuilds` gate stays happy. The trade-off is no
   React Native-specific rules, which `eslint-config-expo` would have given.
@@ -86,6 +112,13 @@ Facts → add to a list → check off as bought. See README.md for the full tour
 ## Quick start
 
 ```bash
-npm install
-npx expo start   # then scan the QR with Expo Go
+pnpm install --frozen-lockfile
+pnpm exec expo start   # then scan the QR with Expo Go
+```
+
+The OpenSpec CLI is a separate, global install — it is not restored by
+`pnpm install`:
+
+```bash
+npm install -g @fission-ai/openspec@1.10.0 --ignore-scripts
 ```

@@ -87,3 +87,41 @@ See "Dependency policy" in `AGENTS.md`. The controls are:
 - **Reproducibility** — `pnpm install --frozen-lockfile` everywhere, including CI.
 - **Registry only** — never add a git dependency: registry tarballs skip their
   `prepare` scripts, git dependencies run them.
+
+## Tooling outside the dependency policy
+
+The OpenSpec CLI (`@fission-ai/openspec`) is installed **globally**, not as a
+devDependency. That is deliberate — it keeps a dev-only tool out of
+`pnpm-lock.yaml` — but it means none of the controls above reach it:
+
+- **No cooldown.** `minimumReleaseAge` is a pnpm *resolution* setting; a global
+  `npm install -g` never consults it. `1.10.0` was installed on 2026-08-22,
+  three days after its 2026-08-19 publication — inside the 7-day window the
+  policy exists to cover. Accepted knowingly rather than overlooked.
+- **No lockfile, no integrity pinning, no re-verification.** The pre-commit
+  hook checks `pnpm-lock.yaml`; a global install never appears there.
+- **No `strictDepBuilds` gate.** Installed with `--ignore-scripts`, and the
+  package declares no `install`/`postinstall`/`prepare` hooks, so nothing ran.
+  Re-check on every upgrade: `npm view @fission-ai/openspec scripts`.
+
+The CLI does not ship in the app bundle and never runs on a user's device. It
+is build-/authoring-time tooling, in the same category as the two accepted
+`npm audit` findings above.
+
+### Outbound traffic from the tooling
+
+The *app* still makes exactly one network call (see Threat model). The
+*tooling* adds two more, both operator-controlled:
+
+- **Telemetry is disabled.** OpenSpec collects anonymous usage stats by
+  default; it is switched off via `telemetry.enabled: false` in
+  `~/.config/openspec/config.json`. That file is global, not per-project, so
+  the setting is not restored by cloning this repo — re-check it on a new
+  machine with `openspec config get telemetry.enabled`.
+- **`openspec feedback "<msg>"` posts to the vendor.** The pre-approved
+  `Bash(openspec:*)` rule in `.claude/settings.json` is a prefix wildcard, so
+  it covers `feedback` and `config` as well as the read-only subcommands.
+  Narrow the rule to specific subcommands if you want an explicit gate there.
+
+`.claude/settings.json` is committed, so that allowlist entry applies to
+everyone who clones the repo, not just the machine that added it.

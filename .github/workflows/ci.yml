@@ -12,15 +12,15 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Reads the pnpm version from the "packageManager" field in package.json.
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
 
       # 22.13 is the floor: pnpm 11 requires ">=22.13", and React Native 0.86
       # allows "^20.19.4 || ^22.13.0 || ^24.3.0 || >=25". Testing the lowest
       # version both accept is what keeps the documented floor honest.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "22.13"
           cache: pnpm

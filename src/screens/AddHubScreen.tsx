@@ -96,6 +96,7 @@ export default function AddHubScreen() {
           <TouchableOpacity
             accessibilityRole="button"
             style={styles.option}
+            testID="go-scan-one"
             onPress={() => router.push("/add/scan")}
           >
             <Text style={styles.optionTitle}>Scan one thing</Text>
@@ -119,6 +120,7 @@ export default function AddHubScreen() {
       <TouchableOpacity
         accessibilityRole="button"
         style={styles.option}
+        testID="go-catalogue"
         onPress={() => router.push("/add/catalogue")}
       >
         <Text style={styles.optionTitle}>Add something you've had before</Text>

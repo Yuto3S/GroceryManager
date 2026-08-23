@@ -1,0 +1,43 @@
+# A scan reaching the pantry, on a device with no camera.
+#
+# The simulator has none, so the barcode arrives as a query parameter that only
+# development builds honour (`src/lib/devScan.ts`). What that skips is the
+# decode — expo-camera's job, not ours. Everything after it is the real thing:
+# the same handler the camera calls, the real lookup, the real catalogue, the
+# real merge rule, the real add sheet.
+#
+# This is the flow that covers what unit tests and the other flows cannot: a
+# product going in one end and coming out the other.
+appId: host.exp.Exponent
+env:
+  EXPO_URL: exp://127.0.0.1:8081
+  # Nutella. Real, stable, and in Open Food Facts.
+  BARCODE: "3017620422003"
+---
+- stopApp
+# Give the OS a moment to finish tearing Expo Go down: `openLink` fired
+# immediately after `stopApp` intermittently times out.
+- waitForAnimationToEnd:
+    timeout: 5000
+- openLink: ${EXPO_URL}
+- extendedWaitUntil:
+    visible:
+      id: "tab-pantry"
+    timeout: 120000
+
+- openLink: ${EXPO_URL}/--/add/scan?barcode=${BARCODE}
+
+# The lookup is a network call to Open Food Facts, so give it room. Offline it
+# still lands here — as an unnamed product, which is the designed outcome.
+- extendedWaitUntil:
+    visible:
+      id: "add-confirm"
+    timeout: 60000
+- tapOn:
+    id: "add-confirm"
+
+# Landed in the pantry, which is where onDone sends you.
+- extendedWaitUntil:
+    visible:
+      id: "tab-pantry"
+    timeout: 30000

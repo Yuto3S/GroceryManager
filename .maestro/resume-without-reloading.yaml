@@ -14,8 +14,26 @@
 # here as the regression being covered end to end; the Jest harness is what
 # covers that.
 appId: host.exp.Exponent
+env:
+  EXPO_URL: exp://127.0.0.1:8081
 ---
+# Stop first: `openLink` on a running Expo Go only brings it to the front, so a
+# flow would inherit whatever route the previous one left behind. Killing it
+# forces a fresh start at `/`. Stored data survives — that is the point.
+- stopApp
+# Give the OS a moment to finish tearing Expo Go down: `openLink` fired
+# immediately after `stopApp` intermittently times out.
+- waitForAnimationToEnd:
+    timeout: 5000
 - openLink: ${EXPO_URL}
+
+# Expo Go has to fetch and evaluate the bundle after a cold start, which takes
+# tens of seconds on a loaded machine. Waiting for the tab bar is waiting for
+# the app to actually exist, rather than guessing at a sleep.
+- extendedWaitUntil:
+    visible:
+      id: "tab-pantry"
+    timeout: 120000
 - tapOn:
     id: "tab-add"
 
@@ -30,16 +48,22 @@ appId: host.exp.Exponent
 
 - tapOn:
     id: "go-rapid-scan"
+# Our own "Allow camera" button, then the system alert behind it. The button
+# needs an id like everything else; the alert is not a React Native view, so
+# text is the only handle it has.
 - runFlow:
     when:
-      visible: "Allow camera"
+      visible:
+        id: "grant-camera"
     commands:
-      - tapOn: "Allow camera"
       - tapOn:
-          text: "Allow|OK|Allow While Using App"
+          id: "grant-camera"
+      - tapOn:
+          text: "OK|Allow"
           optional: true
 
 # Nothing has been scanned, so pausing should leave nothing to resume.
-- tapOn: "Pause"
+- tapOn:
+    id: "rapid-pause"
 - assertNotVisible:
     id: "resume-banner"

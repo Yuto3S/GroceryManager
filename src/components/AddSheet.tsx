@@ -236,6 +236,7 @@ export default function AddSheet({ product, onDone, onCancel }: AddSheetProps) {
         accessibilityRole="button"
         style={[styles.confirm, !canConfirm && styles.confirmOff]}
         disabled={!canConfirm}
+        testID="add-confirm"
         onPress={confirm}
       >
         <Text style={styles.confirmText}>Add to pantry</Text>

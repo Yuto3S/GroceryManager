@@ -4,8 +4,26 @@
 # The element was in the tree the whole time and every unit test passed. What
 # was wrong was where it was, which only a real viewport can tell you.
 appId: host.exp.Exponent
+env:
+  EXPO_URL: exp://127.0.0.1:8081
 ---
+# Stop first: `openLink` on a running Expo Go only brings it to the front, so a
+# flow would inherit whatever route the previous one left behind. Killing it
+# forces a fresh start at `/`. Stored data survives — that is the point.
+- stopApp
+# Give the OS a moment to finish tearing Expo Go down: `openLink` fired
+# immediately after `stopApp` intermittently times out.
+- waitForAnimationToEnd:
+    timeout: 5000
 - openLink: ${EXPO_URL}
+
+# Expo Go has to fetch and evaluate the bundle after a cold start, which takes
+# tens of seconds on a loaded machine. Waiting for the tab bar is waiting for
+# the app to actually exist, rather than guessing at a sleep.
+- extendedWaitUntil:
+    visible:
+      id: "tab-pantry"
+    timeout: 120000
 - tapOn:
     id: "tab-add"
 
@@ -17,4 +35,5 @@ appId: host.exp.Exponent
     direction: DOWN
 - tapOn:
     id: "go-manual-add"
-- assertVisible: "Type a name|What is it"
+- assertVisible:
+    id: "manual-name-input"

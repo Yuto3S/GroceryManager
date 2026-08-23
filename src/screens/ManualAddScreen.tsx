@@ -50,6 +50,7 @@ export default function ManualAddScreen({
         placeholderTextColor={colors.subtle}
         autoFocus
         accessibilityLabel="Product name"
+        testID="manual-name-input"
         returnKeyType="next"
         onSubmitEditing={() => next && setProduct(next)}
       />
@@ -63,6 +64,7 @@ export default function ManualAddScreen({
         style={[styles.button, !next && styles.buttonOff]}
         disabled={!next}
         onPress={() => next && setProduct(next)}
+        testID="manual-continue"
       >
         <Text style={styles.buttonText}>Continue</Text>
       </TouchableOpacity>

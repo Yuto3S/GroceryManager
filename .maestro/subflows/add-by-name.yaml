@@ -1,0 +1,21 @@
+# Add one product by typing its name. Expects to start on any screen inside the
+# tab group, and leaves you back there.
+appId: host.exp.Exponent
+---
+- tapOn:
+    id: "tab-add"
+- scrollUntilVisible:
+    element:
+      id: "go-manual-add"
+    direction: DOWN
+- tapOn:
+    id: "go-manual-add"
+- tapOn:
+    id: "manual-name-input"
+- inputText: ${NAME}
+# No hideKeyboard: Expo Go's text input exposes no standard dismiss action, and
+# Continue sits above the keyboard anyway.
+- tapOn:
+    id: "manual-continue"
+- tapOn:
+    id: "add-confirm"

@@ -1,0 +1,47 @@
+# Put real products in the pantry without a camera.
+#
+# The simulator has none, so every scanning path is unreachable there. Typing a
+# name is not a workaround for that — it is a real path through the same
+# reducer, the same catalogue and the same merge rule, and it is the only one a
+# simulator can drive. Run this first and every later flow has something to act
+# on.
+#
+# Deliberately not a test: it asserts almost nothing and exists to leave state
+# behind. Everything else in this directory is the opposite.
+appId: host.exp.Exponent
+env:
+  EXPO_URL: exp://127.0.0.1:8081
+---
+- stopApp
+# Give the OS a moment to finish tearing Expo Go down: `openLink` fired
+# immediately after `stopApp` intermittently times out.
+- waitForAnimationToEnd:
+    timeout: 5000
+- openLink: ${EXPO_URL}
+
+# Expo Go has to fetch and evaluate the bundle after a cold start, which takes
+# tens of seconds on a loaded machine. Waiting for the tab bar is waiting for
+# the app to actually exist, rather than guessing at a sleep.
+- extendedWaitUntil:
+    visible:
+      id: "tab-pantry"
+    timeout: 120000
+
+# Three products, one per place, so grouping has something to group.
+- runFlow:
+    file: subflows/add-by-name.yaml
+    env:
+      NAME: "Tomatoes"
+- runFlow:
+    file: subflows/add-by-name.yaml
+    env:
+      NAME: "Rice"
+- runFlow:
+    file: subflows/add-by-name.yaml
+    env:
+      NAME: "Frozen peas"
+
+- tapOn:
+    id: "tab-pantry"
+- assertVisible:
+    id: "tab-pantry"

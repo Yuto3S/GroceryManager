@@ -14,12 +14,22 @@ jest.mock("@react-native-async-storage/async-storage", () =>
 
 // Deterministic ids. Real UUIDs would make every assertion about "which entry"
 // impossible to write, and uniqueness is all the code actually depends on.
+//
+// The counter resets between tests (see `jest.isolation.ts`). Without
+// that it would keep climbing for the lifetime of the file, so the ids a test
+// sees would depend on how many ran before it — and `uuid-1` would mean
+// something different depending on the order. That is precisely the coupling
+// deterministic ids are supposed to remove.
 jest.mock("expo-crypto", () => {
   let counter = 0;
   return {
     randomUUID: () => {
       counter += 1;
       return `uuid-${counter}`;
+    },
+    /** Test-only. Called from `jest.isolation.ts`, never by the app. */
+    __resetIds: () => {
+      counter = 0;
     },
   };
 });

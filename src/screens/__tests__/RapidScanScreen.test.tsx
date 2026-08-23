@@ -8,6 +8,7 @@ import {
 } from "@jest/globals";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -200,13 +201,16 @@ describe("RapidScanScreen", () => {
 
   it("does not let a slow lookup block the next scan", async () => {
     // The scan path has no `await` in it; this is what that buys.
-    // Held in an object so TypeScript does not narrow the binding to `never`
-    // from the assignment inside the executor.
-    const pending: { settle?: (p: Product | null) => void } = {};
+    //
+    // Every resolver is collected, not just the latest. Both lookups are in
+    // flight at once (MAX_CONCURRENT_LOOKUPS is 3), so a single slot would
+    // leave the first promise unsettleable — pending for the rest of the run,
+    // holding a lookup slot and a component that never finishes updating.
+    const pending: Array<(p: Product | null) => void> = [];
     lookup.mockImplementation(
       () =>
         new Promise<Product | null>((resolve) => {
-          pending.settle = resolve;
+          pending.push(resolve);
         }),
     );
 
@@ -219,7 +223,24 @@ describe("RapidScanScreen", () => {
     // Both queued while the first lookup is still in flight.
     expect(await screen.findByText(/2 products · 2 scanned/)).toBeTruthy();
 
-    pending.settle?.(NUTELLA);
+    // Settle everything still in flight, inside `act`, and let the resolutions
+    // land before the test ends. Without this the lookups resolve after
+    // teardown: React warns about an update outside `act`, and the state lands
+    // in whichever test happens to run next.
+    await act(async () => {
+      for (const settle of pending.splice(0)) settle(NUTELLA);
+    });
+
+    // The resolution really arrived, rather than merely being awaited.
+    await waitFor(async () => {
+      const raw = await AsyncStorage.getItem("@pantry/scanSession/v1");
+      const items = JSON.parse(raw ?? "{}").items as Array<{
+        product: Product | null;
+      }>;
+      expect(items.every((item) => item.product?.name === "Nutella")).toBe(
+        true,
+      );
+    });
   });
 
   it("keeps scanning with no network at all", async () => {

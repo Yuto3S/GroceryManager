@@ -135,10 +135,37 @@ inventory. Re-buy suggestions return later, built on real consumption data.
   either: overlapping `act` calls corrupt the renderer for the *next* test, not
   the one doing it. And let anything in flight settle before a test ends, or the
   component updates during teardown and breaks whatever runs next.
-- `jest.setup.ts` mocks the three native modules that cannot run under Jest:
+- `jest.setup.ts` mocks the native modules that cannot run under Jest:
   AsyncStorage (the shipped in-memory mock, so the read-write round trip is
-  real), `expo-crypto` (counter ids, so assertions can name an entry), and
-  `expo-camera` (a view that hands the test a way to say "a barcode was seen").
+  real), `expo-crypto` (counter ids, so assertions can name an entry),
+  `expo-camera` (a view that hands the test a way to say "a barcode was seen"),
+  plus haptics, keep-awake and safe-area insets.
+- **`jest.isolation.ts` is separate from `jest.setup.ts` for a reason.**
+  `setupFiles` runs *before* the test framework exists, so `beforeEach` is not
+  defined there; hooks must go in `setupFilesAfterEnv`. It clears AsyncStorage
+  and resets the id counter before every test, and `clearMocks`/`restoreMocks`
+  in the Jest config handle mock call history and spies.
+- **The id counter must reset between tests.** Left running it climbs for the
+  life of the file, so `uuid-1` means a different entry depending on how many
+  tests ran first — which is exactly the coupling deterministic ids exist to
+  remove.
+- **`pnpm run test:isolation` shuffles test order** (`jest --randomize`). Run it
+  after adding tests that touch storage, the clock or module state: order
+  dependence shows up as a failure with a printed seed rather than as a flake
+  in CI months later.
+- **`testTimeout` is 30s, not Jest's 5s default, and that is not slack for slow
+  tests.** React Native's index uses lazy getters, so the *first* `render()` in
+  a suite transforms and evaluates a large slice of RN inside the test body. On
+  a cold Jest cache — which is every CI run, since `actions/setup-node`'s
+  `cache: pnpm` caches the pnpm store and not Jest's transforms — that alone
+  exceeds 5s and fails the first test of the heavier suites while every later
+  test passes in milliseconds. Reproduce with `pnpm exec jest --clearCache`
+  before concluding a test is genuinely slow.
+- **A promise a test starts must settle before the test ends.** A lookup mocked
+  to stay pending, then resolved on the last line, resolves *after* teardown:
+  React warns about an update outside `act`, and the state lands in whichever
+  test runs next. Collect every resolver, settle them inside
+  `await act(async () => …)`, and assert the result actually arrived.
 - **Detox is not an option while the app targets Expo Go.** It needs the native
   `ios/`/`android/` projects, so it requires `expo prebuild`. That would also
   invalidate the SECURITY.md rationale for accepting GHSA-w5hq-g745-h8pq, which

@@ -62,7 +62,7 @@
 - [x] 6.1 Implement `writeBackupFile(json, filename)` in `src/lib/backupFile.ts`
       with the native path writing to the cache directory then sharing, and
       verify it against the installed `expo-file-system` SDK 57 API
-- [ ] 6.2 Implement the web path as a Blob download that revokes its object URL,
+- [x] 6.2 Implement the web path as a Blob download that revokes its object URL,
       and verify the downloaded file opens as valid JSON
 - [x] 6.3 Implement `readBackupFile()` over `expo-document-picker` on both
       platforms and verify a cancelled picker returns a cancelled result rather

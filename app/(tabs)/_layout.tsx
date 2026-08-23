@@ -9,14 +9,8 @@
 
 import { usePathname } from "expo-router";
 import { TabList, TabSlot, Tabs, TabTrigger } from "expo-router/ui";
-import {
-  Platform,
-  StatusBar as RNStatusBar,
-  SafeAreaView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { isVisible } from "../../src/lib/pantry";
 import { usePantry } from "../../src/state/PantryStore";
 import { colors } from "../../src/theme";
@@ -77,11 +71,9 @@ export default function TabsLayout() {
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: colors.bg,
-    paddingTop: Platform.OS === "android" ? RNStatusBar.currentHeight : 0,
-  },
+  // `react-native-safe-area-context` handles Android's status bar too, so the
+  // manual paddingTop that used to be here is gone.
+  root: { flex: 1, backgroundColor: colors.bg },
   tabs: { flex: 1 },
   header: {
     paddingVertical: 12,

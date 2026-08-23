@@ -76,3 +76,15 @@ jest.mock("expo-keep-awake", () => ({
   activateKeepAwakeAsync: async () => {},
   deactivateKeepAwake: async () => {},
 }));
+
+// Safe-area insets need a provider, which the app supplies at the root but a
+// test rendering one screen does not. The library ships a mock with fixed
+// insets for exactly this — real numbers, so a component that lays out from
+// them still gets sensible values rather than zeros.
+// The shipped mock is a *default* export, so it arrives nested under `.default`
+// through Babel's ESM interop — spreading the module itself gives a module
+// object with no hooks on it, and `useSafeAreaInsets` is then not a function.
+jest.mock(
+  "react-native-safe-area-context",
+  () => require("react-native-safe-area-context/jest/mock").default,
+);

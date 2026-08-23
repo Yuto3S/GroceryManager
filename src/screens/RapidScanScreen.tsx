@@ -17,6 +17,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { lookupProduct } from "../api/openFoodFacts";
 import { extractBarcode } from "../lib/barcode";
 import {
@@ -28,6 +29,7 @@ import {
 import { BARCODE_TYPES } from "../lib/scanning";
 import { usePantry } from "../state/PantryStore";
 import { useScanSession } from "../state/ScanSessionStore";
+import { RESCAN_DEBOUNCE_MS } from "../state/scanSession";
 import { colors } from "../theme";
 
 /**
@@ -50,13 +52,23 @@ interface Acknowledgement {
 interface RapidScanScreenProps {
   onReview: () => void;
   onCancel: () => void;
+  /**
+   * Barcodes to treat as if the camera had read them, in order. Development
+   * only — see `src/lib/devScan.ts`. Several are allowed because a rapid
+   * session with one item does not exercise anything rapid mode exists for.
+   */
+  injectedBarcodes?: readonly string[];
 }
 
 export default function RapidScanScreen({
   onReview,
   onCancel,
+  injectedBarcodes,
 }: RapidScanScreenProps) {
   const [permission, requestPermission] = useCameraPermissions();
+  // Full-bleed camera: the picture reaches the corners, the controls over it
+  // do not. The bottom bar was running into the home indicator.
+  const insets = useSafeAreaInsets();
   const { locations, productCache, cacheProduct } = usePantry();
   const {
     session,
@@ -165,6 +177,28 @@ export default function RapidScanScreen({
     }
   }, [session, locations, startSession]);
 
+  // Feed injected barcodes in once a session exists, spaced past the debounce
+  // so each one counts as a deliberate scan rather than a camera repeat — the
+  // same thing a person's hand does, at the same rhythm.
+  const injectedRef = useRef(false);
+  useEffect(() => {
+    if (!injectedBarcodes || injectedBarcodes.length === 0) return;
+    if (session === null || injectedRef.current) return;
+    injectedRef.current = true;
+
+    let cancelled = false;
+    (async () => {
+      for (const barcode of injectedBarcodes) {
+        if (cancelled) return;
+        handleScan({ data: barcode });
+        await new Promise((r) => setTimeout(r, RESCAN_DEBOUNCE_MS + 200));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [injectedBarcodes, session, handleScan]);
+
   if (!permission) {
     return (
       <View style={styles.centre}>
@@ -184,6 +218,7 @@ export default function RapidScanScreen({
         <TouchableOpacity
           accessibilityRole="button"
           style={styles.permissionButton}
+          testID="grant-camera"
           onPress={requestPermission}
         >
           <Text style={styles.buttonText}>Allow camera</Text>
@@ -212,7 +247,7 @@ export default function RapidScanScreen({
         onBarcodeScanned={handleScan}
       />
 
-      <View style={styles.top}>
+      <View style={[styles.top, { paddingTop: insets.top + 12 }]}>
         <Text style={styles.count} accessibilityLabel="Items scanned">
           {scanned === 0
             ? "Nothing scanned yet"
@@ -220,7 +255,7 @@ export default function RapidScanScreen({
         </Text>
       </View>
 
-      <View style={styles.bottom}>
+      <View style={[styles.bottom, { paddingBottom: insets.bottom + 12 }]}>
         {ack ? (
           <View style={styles.ack}>
             <Text style={styles.ackText} numberOfLines={1}>
@@ -277,6 +312,7 @@ export default function RapidScanScreen({
           <TouchableOpacity
             accessibilityRole="button"
             style={styles.link}
+            testID="rapid-pause"
             onPress={onCancel}
           >
             <Text style={styles.linkText}>Pause</Text>
@@ -284,6 +320,7 @@ export default function RapidScanScreen({
           <TouchableOpacity
             accessibilityRole="button"
             style={[styles.button, scanned === 0 && styles.buttonOff]}
+            testID="rapid-review"
             disabled={scanned === 0}
             onPress={onReview}
           >
@@ -306,7 +343,7 @@ const styles = StyleSheet.create({
     gap: 10,
     backgroundColor: colors.bg,
   },
-  top: { paddingTop: 12, alignItems: "center" },
+  top: { alignItems: "center" },
   count: {
     color: colors.primaryText,
     backgroundColor: "rgba(0,0,0,0.55)",
@@ -373,6 +410,14 @@ const styles = StyleSheet.create({
   permissionLinkText: { color: colors.subtle, fontWeight: "600" },
   buttonOff: { opacity: 0.4 },
   buttonText: { color: colors.primaryText, fontWeight: "800" },
-  link: { paddingVertical: 12, paddingHorizontal: 8 },
-  linkText: { color: colors.primaryText, fontWeight: "600", opacity: 0.9 },
+  // Matches ScanAddScreen's Cancel: an outlined pill, so the control's bounds
+  // are visible rather than implied by a full-width bar behind it.
+  link: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.5)",
+  },
+  linkText: { color: colors.primaryText, fontWeight: "700" },
 });

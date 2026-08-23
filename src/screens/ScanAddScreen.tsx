@@ -9,7 +9,7 @@ import {
   CameraView,
   useCameraPermissions,
 } from "expo-camera";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   StyleSheet,
@@ -17,6 +17,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { lookupProduct } from "../api/openFoodFacts";
 import AddSheet from "../components/AddSheet";
 import { extractBarcode } from "../lib/barcode";
@@ -41,13 +42,24 @@ type Status =
 interface ScanAddScreenProps {
   onDone: () => void;
   onCancel: () => void;
+  /**
+   * A barcode to treat as if the camera had read it. Development only — see
+   * `src/lib/devScan.ts`. The simulator has no camera, so this is the only way
+   * an automated flow reaches anything past the viewfinder.
+   */
+  injectedBarcode?: string | null;
 }
 
 export default function ScanAddScreen({
   onDone,
   onCancel,
+  injectedBarcode = null,
 }: ScanAddScreenProps) {
   const [permission, requestPermission] = useCameraPermissions();
+  // The camera is full-bleed by design, so the controls over it carry the
+  // inset rather than the screen. A guessed paddingTop was wrong on every
+  // device that was not the one it was guessed on.
+  const insets = useSafeAreaInsets();
   const [status, setStatus] = useState<Status>({ state: "scanning" });
   const { productCache, cacheProduct } = usePantry();
 
@@ -115,6 +127,14 @@ export default function ScanAddScreen({
     [productCache, cacheProduct],
   );
 
+  // Fires once, through `handleScan` rather than beside it: an injection that
+  // took a shortcut past the debounce and the cache would be testing a code
+  // path that does not exist in the real app.
+  useEffect(() => {
+    if (injectedBarcode === null) return;
+    void handleScan({ data: injectedBarcode } as BarcodeScanningResult);
+  }, [injectedBarcode, handleScan]);
+
   function scanAgain() {
     lockRef.current = false;
     setStatus({ state: "scanning" });
@@ -139,6 +159,7 @@ export default function ScanAddScreen({
         <TouchableOpacity
           accessibilityRole="button"
           style={styles.button}
+          testID="grant-camera"
           onPress={requestPermission}
         >
           <Text style={styles.buttonText}>Allow camera</Text>
@@ -155,8 +176,12 @@ export default function ScanAddScreen({
   }
 
   if (status.state === "ready") {
+    // This route is mounted edge-to-edge so the *camera* can fill the screen,
+    // but the add sheet is not a camera. It carries the top inset itself
+    // rather than the route granting one the viewfinder would then have to
+    // fight.
     return (
-      <View style={styles.root}>
+      <View style={[styles.root, { paddingTop: insets.top }]}>
         {status.note ? <Text style={styles.note}>{status.note}</Text> : null}
         <AddSheet
           product={status.product}
@@ -199,28 +224,29 @@ export default function ScanAddScreen({
         onBarcodeScanned={handleScan}
       />
       {/*
-        A way out of the camera. Without this the only exit is the OS back
-        gesture, which is not an affordance — the screen fills with a live
-        viewfinder and nothing on it says you can leave.
+        The way out, and the status caption, in one bar at the bottom — the
+        same place and the same shape as rapid mode's Pause. Two screens doing
+        the same job should not put the same control in two different corners,
+        and the bottom is the half of the screen you can reach while holding
+        the phone up to a packet.
       */}
-      <View style={styles.topBar}>
-        <TouchableOpacity
-          accessibilityRole="button"
-          accessibilityLabel="Cancel scanning"
-          testID="scan-cancel"
-          style={styles.pill}
-          onPress={onCancel}
-        >
-          <Text style={styles.pillText}>Cancel</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.overlay}>
-        <Text style={styles.overlayText}>
+      <View style={[styles.bottom, { paddingBottom: insets.bottom + 12 }]}>
+        <Text style={styles.hint}>
           {status.state === "looking-up"
             ? "Looking it up…"
             : "Point at the barcode"}
         </Text>
+        <View style={styles.actions}>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="Cancel scanning"
+            testID="scan-cancel"
+            style={styles.cameraAction}
+            onPress={onCancel}
+          >
+            <Text style={styles.cameraActionText}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
@@ -229,39 +255,30 @@ export default function ScanAddScreen({
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   camera: { flex: 1 },
-  topBar: {
+  // Mirrors RapidScanScreen's bottom bar, deliberately: the two camera screens
+  // should read as the same screen with a different job.
+  bottom: {
     position: "absolute",
-    top: 0,
     left: 0,
     right: 0,
-    alignItems: "flex-start",
+    bottom: 0,
     padding: 12,
-    // The status bar, without reaching for a safe-area provider that nothing
-    // else in this screen needs. Matches the rapid-scan overlay's approach.
-    paddingTop: 56,
+    gap: 8,
+    backgroundColor: "rgba(0,0,0,0.6)",
   },
-  pill: {
-    backgroundColor: "rgba(0,0,0,0.55)",
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+  hint: { color: colors.primaryText, fontWeight: "600" },
+  actions: { flexDirection: "row", alignItems: "center", gap: 12 },
+  // Bounded and outlined, so the tap target is the thing you can see. As a
+  // bare label it was the width of the word while the bar behind it spanned
+  // the screen — which reads as a full-width button that mostly does nothing.
+  cameraAction: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
     borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.5)",
   },
-  pillText: { color: colors.primaryText, fontWeight: "700" },
-  overlay: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 32,
-    alignItems: "center",
-  },
-  overlayText: {
-    color: colors.primaryText,
-    backgroundColor: "rgba(0,0,0,0.55)",
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 999,
-    fontWeight: "700",
-  },
+  cameraActionText: { color: colors.primaryText, fontWeight: "700" },
   note: {
     padding: 12,
     color: colors.subtle,

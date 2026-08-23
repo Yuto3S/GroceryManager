@@ -1,4 +1,6 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
+import SafeScreen from "../../src/components/SafeScreen";
+import { goBackOr } from "../../src/lib/navigation";
 import EntryDetailScreen from "../../src/screens/EntryDetailScreen";
 
 export default function EntryRoute() {
@@ -8,5 +10,9 @@ export default function EntryRoute() {
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
   const router = useRouter();
 
-  return <EntryDetailScreen id={id ?? ""} onDone={() => router.back()} />;
+  return (
+    <SafeScreen>
+      <EntryDetailScreen id={id ?? ""} onDone={() => goBackOr(router, "/")} />
+    </SafeScreen>
+  );
 }

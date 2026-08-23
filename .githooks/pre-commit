@@ -18,6 +18,9 @@ problem() { printf '\npre-commit: %s\n' "$1"; fail=1; }
 staged=$(git diff --cached --name-only --diff-filter=ACM)
 [ -z "$staged" ] && exit 0
 
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+
 # ---------------------------------------------------------------------------
 # 1. Never commit credentials or signing material.
 # ---------------------------------------------------------------------------
@@ -61,10 +64,43 @@ fi
 
 pkg=$(printf '%s\n' "$staged" | grep -c '^package\.json$' || true)
 lock=$(printf '%s\n' "$staged" | grep -cE '^(package-lock\.json|pnpm-lock\.yaml)$' || true)
+
+# Only a change to the DEPENDENCY fields needs the lockfile alongside it.
+# Comparing the whole file would flag a script or a jest setting too, and a
+# check that cries wolf on an unrelated edit is one people learn to skip with
+# --no-verify — which is worse than the false positive it was avoiding.
+#
+# Prints "changed" when the dependency fields differ from HEAD, nothing when
+# they match. Falls back to treating any package.json edit as a dependency edit
+# if node is unavailable or the file cannot be parsed, so a broken parse fails
+# closed rather than silently waving a real change through.
+deps_changed() {
+  command -v node >/dev/null 2>&1 || { echo changed; return; }
+  git show HEAD:package.json >/dev/null 2>&1 || { echo changed; return; }
+
+  fields='["dependencies","devDependencies","optionalDependencies","peerDependencies","resolutions","overrides","pnpm","packageManager","engines"]'
+  git show :package.json > "$tmp/staged.json" 2>/dev/null || { echo changed; return; }
+  git show HEAD:package.json > "$tmp/head.json" 2>/dev/null || { echo changed; return; }
+
+  node -e '
+    const fs = require("fs");
+    const fields = JSON.parse(process.argv[3]);
+    const pick = (f) => {
+      const o = JSON.parse(fs.readFileSync(f, "utf8"));
+      return JSON.stringify(fields.map((k) => [k, o[k] ?? null]));
+    };
+    try {
+      if (pick(process.argv[1]) !== pick(process.argv[2])) console.log("changed");
+    } catch { console.log("changed"); }
+  ' "$tmp/staged.json" "$tmp/head.json" "$fields" 2>/dev/null || echo changed
+}
+
 if [ "$pkg" -gt 0 ] && [ "$lock" -eq 0 ]; then
-  problem "package.json changed but the lockfile didn't."
-  note "Commit them together so the locked tree stays reproducible."
-  note "See AGENTS.md for the 7-day dependency cooldown before adding packages."
+  if [ -n "$(deps_changed)" ]; then
+    problem "package.json dependencies changed but the lockfile didn't."
+    note "Commit them together so the locked tree stays reproducible."
+    note "See AGENTS.md for the 7-day dependency cooldown before adding packages."
+  fi
 fi
 
 # ---------------------------------------------------------------------------

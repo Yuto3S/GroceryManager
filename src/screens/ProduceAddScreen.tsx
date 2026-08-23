@@ -147,7 +147,12 @@ export default function ProduceAddScreen({
               label={CHIP_LABELS[group]}
               testID={`produce-chip-${slug(group)}`}
               active={filter === group}
-              onPress={() => setFilter(filter === group ? null : group)}
+              // Selecting, not toggling. These are one choice between four
+              // mutually exclusive options, so tapping the active chip does
+              // nothing — "All" is already how you widen the filter, and having
+              // two ways to reach it made the active chip behave like a
+              // checkbox in a row that is not one.
+              onPress={() => setFilter(group)}
             />
           ))}
         </View>

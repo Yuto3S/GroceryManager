@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, jest } from "@jest/globals";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { fireEvent, render, screen } from "@testing-library/react-native";
-import type { ReactTestRendererJSON } from "react-test-renderer";
 import { PantryProvider } from "../../state/PantryStore";
 import type { Location, PantryEntry } from "../../types";
 import ProduceAddScreen from "../ProduceAddScreen";
@@ -41,27 +40,6 @@ const renderScreen = () =>
 beforeEach(async () => {
   await seed();
 });
-
-/**
- * How many host nodes of a given type the tree holds.
- *
- * RNTL v14 dropped `UNSAFE_queryAllByType`, and there is no testID to hang an
- * assertion on for something whose absence is the point.
- */
-function countHostNodes(
-  node: ReactTestRendererJSON | ReactTestRendererJSON[] | null,
-  type: string,
-): number {
-  if (node === null) return 0;
-  if (Array.isArray(node)) {
-    return node.reduce((n, child) => n + countHostNodes(child, type), 0);
-  }
-  const here = node.type === type ? 1 : 0;
-  const children = (node.children ?? []).filter(
-    (child): child is ReactTestRendererJSON => typeof child !== "string",
-  );
-  return here + children.reduce((n, c) => n + countHostNodes(c, type), 0);
-}
 
 /**
  * Narrow to an item, then tap it.
@@ -143,11 +121,13 @@ describe("ProduceAddScreen", () => {
     await renderScreen();
     await pick("carrots");
 
-    // "E" is Nutella's Nutri-Score in the other fixtures. Produce has no brand,
-    // no grade and no packshot, and the sheet must not invent them.
+    // "E" is Nutella's Nutri-Score in the other fixtures. Produce has no brand
+    // and no grade, and the sheet must not invent them. It does now carry the
+    // item's own icon — that is the point of the next test — so the assertion
+    // here is about invented product metadata, not about images.
     expect(screen.queryByText("E")).toBeNull();
+    expect(screen.queryByText("Ferrero")).toBeNull();
     expect(screen.getByText("Carrots")).toBeTruthy();
-    expect(countHostNodes(screen.toJSON(), "Image")).toBe(0);
   });
 
   it("creates the entry with no expiry, despite the item having a shelf life", async () => {
@@ -166,33 +146,32 @@ describe("ProduceAddScreen", () => {
     expect(entries[0]?.expiresAt).toBeNull();
   });
 
-  it("shows the item's own icon where one exists", async () => {
-    await renderScreen();
-    await fireEvent.changeText(
-      screen.getByTestId("produce-search"),
-      "broccoli",
-    );
-
-    // `includeHiddenElements` because the icon is deliberately hidden from
-    // accessibility: it is decorative, and the tile already carries the name as
-    // text. A screen reader announcing "broccoli image, Broccoli" is noise.
-    expect(
-      screen.getByText("🥦", { includeHiddenElements: true }),
-    ).toBeTruthy();
-  });
-
-  it("falls back to the group icon rather than a lookalike", async () => {
-    // Parsnips have no emoji of their own. Borrowing the carrot would read as
-    // the wrong item; the group icon reads as "this kind of thing".
+  it("draws bundled artwork where we have it", async () => {
+    // Parsnips are the case that motivated bundling artwork at all: emoji has
+    // no glyph for them, and borrowing the carrot would read as the wrong item.
     await renderScreen();
     await fireEvent.changeText(
       screen.getByTestId("produce-search"),
       "parsnips",
     );
 
-    expect(screen.getByTestId("produce-parsnips")).toBeTruthy();
     expect(
-      screen.getByText("🥕", { includeHiddenElements: true }),
+      screen.getByTestId("produce-art-parsnips", {
+        includeHiddenElements: true,
+      }),
+    ).toBeTruthy();
+  });
+
+  it("falls back to emoji for an item with no artwork yet", async () => {
+    // The crop-icon set has no citrus and almost no common fruit, so bananas
+    // are still on the stopgap. Coverage is partial by design, not by accident.
+    await renderScreen();
+    await fireEvent.changeText(screen.getByTestId("produce-search"), "bananas");
+
+    expect(
+      screen.getByTestId("produce-emoji-bananas", {
+        includeHiddenElements: true,
+      }),
     ).toBeTruthy();
   });
 
@@ -206,12 +185,28 @@ describe("ProduceAddScreen", () => {
     expect(screen.queryByTestId("produce-section-fruit")).toBeNull();
   });
 
-  it("returns to everything when the chip is tapped again", async () => {
+  it("stays put when the active chip is tapped again", async () => {
+    // The chips are one choice between four, not four checkboxes. Un-toggling
+    // back to everything would make the active chip behave like something the
+    // row is not.
     await renderScreen();
 
     await fireEvent.press(screen.getByTestId("produce-chip-herbs"));
     await fireEvent.press(screen.getByTestId("produce-chip-herbs"));
 
+    expect(screen.getByTestId("produce-section-herbs")).toBeTruthy();
+    expect(screen.queryByTestId("produce-section-vegetables")).toBeNull();
+  });
+
+  it("widens back to everything through All", async () => {
+    await renderScreen();
+    await fireEvent.press(screen.getByTestId("produce-chip-herbs"));
+
+    await fireEvent.press(screen.getByTestId("produce-chip-all"));
+
+    // Vegetables alone is enough to prove the filter widened: it was hidden a
+    // moment ago, and the list is virtualized, so Fruit's header sits below the
+    // rendered window once all 103 items are back.
     expect(screen.getByTestId("produce-section-vegetables")).toBeTruthy();
   });
 
@@ -258,7 +253,9 @@ describe("ProduceAddScreen", () => {
     await pick("aubergine");
 
     expect(
-      screen.getByText("🍆", { includeHiddenElements: true }),
+      screen.getByTestId("produce-art-aubergine", {
+        includeHiddenElements: true,
+      }),
     ).toBeTruthy();
     expect(screen.queryByText("▣", { includeHiddenElements: true })).toBeNull();
   });

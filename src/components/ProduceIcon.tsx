@@ -2,22 +2,24 @@
 //
 // THIS IS THE ONE PLACE THAT DECIDES WHAT A PRODUCE ICON IS. The picker lays
 // out tiles; what goes inside them is settled here and nowhere else, so the
-// artwork can change without the layout being touched.
+// artwork can change without any screen being touched.
 //
-// It renders the item's emoji today. That is an interim answer, not the
-// intended one: emoji has no glyph for parsnips, celeriac, kohlrabi or okra,
-// and falling back to a lookalike (a carrot standing in for a parsnip) reads as
-// the wrong item rather than as a missing picture.
+// Two sources, in order:
 //
-// The replacement being weighed is bundled artwork — `openfarmcc/open-crop-icons`
-// (CC0) covers 77 of the 103 with real drawings and is strongest exactly where
-// emoji is weakest, but has no citrus and no common fruit at all. Whatever
-// lands, it arrives as a swap of this component's body: give the item an
-// `iconSource` and render an `<Image>`, keeping the same props and the same
-// sizing contract, and every screen follows without edits.
+//   1. Bundled artwork from `open-crop-icons` (CC0) — see `produceIcons.ts`.
+//      Covers 77 of 103, and is strongest exactly where emoji is weakest:
+//      parsnips, celeriac, kohlrabi, okra, radicchio, swede.
+//   2. The item's emoji, for anything with no drawing yet.
+//
+// The emoji fallback is a stopgap and reads as one. It has no glyph for most
+// herbs, so every herb falls back to the same generic leaf and ten different
+// plants render identically — which is precisely the failure that motivated
+// bundling artwork. Filling the gap is tracked in the `add-produce-picker`
+// change; nothing outside this file changes when it is filled.
 
 import { Image, StyleSheet, Text } from "react-native";
 import type { ProduceItem } from "../data/produce";
+import { PRODUCE_ICONS } from "../data/produceIcons";
 
 interface ProduceIconProps {
   item: ProduceItem;
@@ -26,17 +28,15 @@ interface ProduceIconProps {
 }
 
 export default function ProduceIcon({ item, size = 34 }: ProduceIconProps) {
-  // `iconSource` does not exist on ProduceItem yet — when it does, this branch
-  // is what starts using it, and the emoji below becomes the fallback for
-  // anything still awaiting artwork.
-  const source = (item as ProduceItem & { iconSource?: number }).iconSource;
+  const source = PRODUCE_ICONS[item.key];
 
   if (source !== undefined) {
     return (
       <Image
         source={source}
-        style={[styles.image, { width: size, height: size }]}
+        style={{ width: size, height: size }}
         resizeMode="contain"
+        testID={`produce-art-${item.key}`}
         // Decorative: the tile already carries the item's name as text, and a
         // screen reader announcing "carrot image, Carrots" is noise.
         accessibilityElementsHidden
@@ -48,6 +48,7 @@ export default function ProduceIcon({ item, size = 34 }: ProduceIconProps) {
   return (
     <Text
       style={[styles.emoji, { fontSize: size }]}
+      testID={`produce-emoji-${item.key}`}
       accessibilityElementsHidden
       importantForAccessibility="no"
     >
@@ -57,8 +58,8 @@ export default function ProduceIcon({ item, size = 34 }: ProduceIconProps) {
 }
 
 const styles = StyleSheet.create({
-  image: { alignSelf: "center" },
-  // A line height matching the font size keeps tall glyphs from shifting the
-  // tile's text baseline, which would make a grid row look misaligned.
+  // `includeFontPadding: false` keeps a tall glyph from shifting the tile's
+  // text baseline, which would make one cell in a grid row sit lower than the
+  // rest.
   emoji: { textAlign: "center", includeFontPadding: false },
 });

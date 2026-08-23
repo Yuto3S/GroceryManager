@@ -2,17 +2,61 @@
 
 ## Threat model
 
-This app has no accounts, no backend, and no analytics. All data (your list and
-the cached products) lives on the device in AsyncStorage. Exactly one network
-call leaves the app: a product lookup to Open Food Facts over HTTPS, sending
-only the scanned barcode.
+This app has no accounts, no backend, and no analytics. All data — your pantry,
+your catalogue, your locations, and the cached products — lives on the device in
+AsyncStorage. Exactly one network call leaves the app: a product lookup to Open
+Food Facts over HTTPS, sending only the scanned barcode.
 
-Two consequences worth knowing:
+Three consequences worth knowing:
 
 - Open Food Facts sees your IP address and every barcode you scan.
 - Open Food Facts is **community-editable**, so product names, brands and image
-  URLs are untrusted input. `src/api/openFoodFacts.js` normalizes them and
-  drops any image URL that isn't plain `https://`.
+  URLs are untrusted input. `src/api/openFoodFacts.ts` normalizes them and
+  drops any image URL that isn't plain `https://`. The response stays typed
+  `unknown` until `isRecord`/`asString` have checked each field — annotating it
+  as a `Product` would be an assertion, not a check, and would let a vandalized
+  record through with the type system vouching for it.
+- Backup export puts your whole pantry into a file you then hand to the OS
+  share sheet (or a browser download). Where it goes after that is outside the
+  app's control — that is the user's choice, and it is the only way data leaves
+  the device besides the barcode lookup.
+
+### Two more untrusted inputs
+
+**A backup file being imported.** It arrives through `expo-document-picker`
+from anywhere the OS can reach, and it is untrusted on exactly the same terms as
+an Open Food Facts record: it can be hand-edited, truncated by a transfer, or be
+some other JSON file entirely. `parseBackup` (`src/lib/backup.ts`) checks it
+field by field. The failure policy is deliberately asymmetric — a structural
+failure rejects the whole document, while one malformed record is dropped and
+*reported*, because rejecting a hundred-item backup over a single bad entry
+would cost the user their pantry. `src/lib/backupFile.ts` is the only module
+that touches the filesystem or the share sheet, which keeps the parsing
+testable with no native mocks.
+
+**A `barcode` query parameter on a route.** `src/lib/devScan.ts` lets a URL
+inject a barcode into the scan handlers, because the iOS Simulator has no
+camera and the whole scan path would otherwise be unreachable to an automated
+flow. Two things keep it from being a liability:
+
+- It is gated on `__DEV__`, which Metro replaces with `false` in a production
+  build, so the branch is dead code that minification drops. A link cannot make
+  a shipped build fabricate a scan.
+- The value still goes through `extractBarcode`. Test-only code that skips
+  validation is how a validation bypass ends up shipping; this is not that.
+
+What it does *not* exercise is the decode itself — that is `expo-camera`'s job.
+Everything downstream of the decode is real.
+
+### Scanning on web is gated on a capability check, not a try/catch
+
+`expo-camera` on web falls back to a WASM polyfill (`barcode-detector` →
+`zxing-wasm`) whose default `locateFile` fetches the engine from jsdelivr at
+runtime. That is a second network call, to a CDN, outside every control in this
+document, and it breaks the offline guarantee. `src/lib/scanning.ts` therefore
+offers scanning only where the browser has a **native** `BarcodeDetector` —
+tested with `getSupportedFormats()`, not `typeof BarcodeDetector`, because the
+constructor can exist while the platform behind it reads nothing.
 
 ## The 18 `npm audit` findings
 
@@ -152,9 +196,35 @@ worklets value is whatever `bundledNativeModules.json` says.
 
 ## Tooling outside the dependency policy
 
-The OpenSpec CLI (`@fission-ai/openspec`) is installed **globally**, not as a
-devDependency. That is deliberate — it keeps a dev-only tool out of
-`pnpm-lock.yaml` — but it means none of the controls above reach it:
+Two tools are installed **outside** npm entirely: the OpenSpec CLI
+(`npm install -g`) and Maestro (Homebrew). Both are deliberate — they keep
+dev-only tooling out of `pnpm-lock.yaml` — but the same caveat applies to each:
+**none of the controls above reach them.** Neither ships in the app bundle and
+neither runs on a user's device, which is the same category as the accepted
+`pnpm audit` findings.
+
+### Maestro (E2E)
+
+Installed with `brew install mobile-dev-inc/tap/maestro`. It adds **no npm
+packages**, so the lockfile, the cooldown and `strictDepBuilds` are all
+untouched by it — and, critically, it needs **no `expo prebuild`**.
+
+That last point is load-bearing. The acceptance of GHSA-w5hq-g745-h8pq above
+rests entirely on prebuild never running. Detox was ruled out for exactly this
+reason: it needs the native `ios/`/`android/` projects. So would Maestro Cloud
+or EAS Workflows, which need an app *binary*. **Local Maestro against Expo Go is
+the only E2E path that keeps this document true as written** — moving E2E into
+CI would invalidate the rationale, not merely inconvenience it.
+
+Maestro is a Homebrew formula, so it carries no cooldown, no integrity pinning
+and no re-verification, and `brew upgrade` will move it without asking. It runs
+an interactive installer that writes to `~/.maestro`. Treat a version bump the
+same way as an OpenSpec one: deliberate, and noted here if anything changes.
+
+### OpenSpec
+
+The OpenSpec CLI (`@fission-ai/openspec`) is installed globally with
+`--ignore-scripts`. None of the controls above reach it:
 
 - **No cooldown.** `minimumReleaseAge` is a pnpm *resolution* setting; a global
   `npm install -g` never consults it. `1.10.0` was installed on 2026-08-22,
@@ -166,14 +236,11 @@ devDependency. That is deliberate — it keeps a dev-only tool out of
   package declares no `install`/`postinstall`/`prepare` hooks, so nothing ran.
   Re-check on every upgrade: `npm view @fission-ai/openspec scripts`.
 
-The CLI does not ship in the app bundle and never runs on a user's device. It
-is build-/authoring-time tooling, in the same category as the two accepted
-`npm audit` findings above.
-
 ### Outbound traffic from the tooling
 
-The *app* still makes exactly one network call (see Threat model). The
-*tooling* adds two more, both operator-controlled:
+The *app* still makes exactly one network call (see Threat model). Maestro adds
+none — it drives a local simulator over a local dev-server URL. OpenSpec adds
+two, both operator-controlled:
 
 - **Telemetry is disabled.** OpenSpec collects anonymous usage stats by
   default; it is switched off via `telemetry.enabled: false` in

@@ -121,7 +121,9 @@ inventory. Re-buy suggestions return later, built on real consumption data.
   duplicate joins an existing entry), `pantry.ts` (consume/restock/clamp),
   `grouping.ts` and `catalogue.ts` (the list and picker selectors),
   `backup.ts` (building and validating the backup document, including the
-  referential repair pass).
+  referential repair pass), `navigation.ts` (going back when there may be no
+  history), `feedback.ts` (haptics, where haptics exist) and `devScan.ts`
+  (barcode injection by URL, development only — see below).
 - `extractBarcode` takes `unknown`, not `string`, so the "what if the scanner
   hands us a number" tests stay reachable. Keep it that way.
 - `react-test-renderer` is deprecated and doesn't support React 19 — use
@@ -152,6 +154,16 @@ inventory. Re-buy suggestions return later, built on real consumption data.
 
   It adds no npm packages (the CLI is a separate install, like OpenSpec) and
   needs no prebuild, so the GHSA-w5hq-g745-h8pq rationale survives.
+- **Maestro selectors in this app must be `id:`.** Plain-text matching does not
+  work here — `maestro hierarchy` returns simulator chrome and nothing else,
+  while `testID`s resolve fine. Add a `testID` to an element a flow needs to
+  drive; don't decorate the whole tree.
+- **Every flow starts with `stopApp`.** `openLink` against an already-running
+  Expo Go only foregrounds it, so without this a flow inherits whatever route
+  the previous one left. Wait a beat after `stopApp` before `openLink`, and wait
+  for the tab bar on a cold start rather than sleeping a guessed interval.
+- **Env goes in each flow's header, not in `.maestro/config.yaml`** — a
+  single-file run never reads that file.
 - **Running Maestro in EAS Workflows would not survive it.** Cloud runs need an
   app binary, which means a build, which means prebuild — the same trap as
   Detox. Local-against-Expo-Go is the only E2E path that keeps SECURITY.md true
@@ -159,10 +171,16 @@ inventory. Re-buy suggestions return later, built on real consumption data.
 - Maestro drives **simulators only**; there is no physical-iPhone support, and
   iOS simulators need full Xcode, not just the Command Line Tools.
 - **The iOS Simulator has no camera**, so no flow can decode a barcode there.
-  E2E on iOS covers navigability and layout — the gap unit tests leave — and
-  nothing of the scan path itself. The Android emulator's virtual scene can be
-  pointed at a supplied image, which is the only way to automate scanning
-  without a physical device. Flows live in `.maestro/`; see its README.
+  Everything *downstream* of the decode is still reachable: in development only,
+  a route may carry a `barcode` query parameter that `src/lib/devScan.ts` feeds
+  to the same handler the camera calls, so a barcode can be driven all the way
+  to a pantry entry. It is gated on `__DEV__` (Metro replaces it with `false`,
+  so the branch is dropped from a production build) and the value still goes
+  through `extractBarcode` — never let that validation be skipped just because
+  the caller is a test. The decode itself remains `expo-camera`'s job and is not
+  covered. The Android emulator's virtual scene can be pointed at a supplied
+  image, which is the only way to automate the decode without a physical device;
+  it is not built. Flows live in `.maestro/`; see its README.
 
 ## Code style
 
@@ -190,6 +208,10 @@ inventory. Re-buy suggestions return later, built on real consumption data.
 - `src/state/PantryStore.tsx` — the provider around it: the clock, the id
   generator and AsyncStorage, and nothing else. That boundary is what would let
   a sync engine slot in underneath.
+- `src/state/scanSession.ts` / `ScanSessionStore.tsx` — the same split for the
+  rapid-scan session: pure rules, then a provider that persists on *every* scan
+  rather than on an interval. Bootstrapping is the highest-risk moment in this
+  app's life; losing forty scans to a crash would be a bad way to fail.
 - `src/api/openFoodFacts.ts` — the only place that talks to the network.
 - `src/lib/backupFile.ts` — the only place that touches the filesystem or the
   share sheet, and the only `Platform.OS` fork in the feature. `expo-file-system`
@@ -208,6 +230,19 @@ inventory. Re-buy suggestions return later, built on real consumption data.
   are UTC epoch milliseconds. `new Date("2026-08-27")` parses as UTC midnight
   and renders a day earlier west of Greenwich — build from local components, and
   count calendar days rather than dividing millisecond differences.
+- `app/` is the route map (Expo Router, `typedRoutes` on). `(tabs)` is a route
+  *group* — the parentheses keep it out of the URL — and the tab bar is the
+  headless `expo-router/ui` one, written here so a count can hang off it.
+- **A pushed route wraps its screen in `src/components/SafeScreen.tsx`.** Only
+  the tab layout ever handled the safe area, so every route pushed on top of it
+  drew its first row under the status bar. It is a route-level concern, not a
+  screen-level one: a new route gets the inset by existing, not by someone
+  remembering. A full-bleed camera screen passes no edges and insets its own
+  overlays instead.
+- **`router.back()` is a silent no-op on an empty history stack**, which is the
+  normal case for a deep link or a pasted web URL. Use `goBackOr(router, "/…")`
+  from `src/lib/navigation.ts`, or the Cancel button is visible, enabled, and
+  does nothing.
 - Screens are presentational and read/write through the `usePantry()` hook.
   Anything the store hydrates asynchronously must be read as a fallback, not
   frozen into a `useState` initialiser — those run before the first load and

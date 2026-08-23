@@ -198,6 +198,22 @@ export default function ScanAddScreen({
         barcodeScannerSettings={{ barcodeTypes: BARCODE_TYPES }}
         onBarcodeScanned={handleScan}
       />
+      {/*
+        A way out of the camera. Without this the only exit is the OS back
+        gesture, which is not an affordance — the screen fills with a live
+        viewfinder and nothing on it says you can leave.
+      */}
+      <View style={styles.topBar}>
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Cancel scanning"
+          style={styles.pill}
+          onPress={onCancel}
+        >
+          <Text style={styles.pillText}>Cancel</Text>
+        </TouchableOpacity>
+      </View>
+
       <View style={styles.overlay}>
         <Text style={styles.overlayText}>
           {status.state === "looking-up"
@@ -212,6 +228,24 @@ export default function ScanAddScreen({
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   camera: { flex: 1 },
+  topBar: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    alignItems: "flex-start",
+    padding: 12,
+    // The status bar, without reaching for a safe-area provider that nothing
+    // else in this screen needs. Matches the rapid-scan overlay's approach.
+    paddingTop: 56,
+  },
+  pill: {
+    backgroundColor: "rgba(0,0,0,0.55)",
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 999,
+  },
+  pillText: { color: colors.primaryText, fontWeight: "700" },
   overlay: {
     position: "absolute",
     left: 0,

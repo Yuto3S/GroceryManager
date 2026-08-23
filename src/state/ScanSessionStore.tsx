@@ -47,6 +47,17 @@ interface ScanSessionContextValue {
    * just scanned them.
    */
   pending: ScanSession | null;
+  /**
+   * Whatever scanning is unfinished, however it got that way: a session found
+   * on the device at startup, or one the user paused this session and walked
+   * away from.
+   *
+   * `pending` alone was not enough. Leaving rapid mode keeps the session live
+   * in memory rather than turning it into a pending one, so the offer to resume
+   * appeared only after a reload — the one moment the user had not asked for
+   * it. This is what the add hub should read.
+   */
+  unfinished: ScanSession | null;
 
   startSession: (locationId: string) => void;
   resumePending: () => void;
@@ -120,6 +131,11 @@ export function ScanSessionProvider({ children }: { children: ReactNode }) {
         : AsyncStorage.setItem(SESSION_KEY, JSON.stringify(session));
     write.catch((e) => console.warn("Failed to save the scan session", e));
   }, [session, loaded]);
+
+  // A live session with nothing scanned into it is not unfinished work; it is
+  // an empty one nobody would miss.
+  const unfinished =
+    pending ?? (session && session.items.length > 0 ? session : null);
 
   const startSession = useCallback(
     (locationId: string) => {
@@ -196,6 +212,7 @@ export function ScanSessionProvider({ children }: { children: ReactNode }) {
     loaded,
     session,
     pending,
+    unfinished,
     startSession,
     resumePending,
     discardPending,

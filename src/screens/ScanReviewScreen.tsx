@@ -8,12 +8,14 @@
 import { useMemo, useState } from "react";
 import {
   FlatList,
+  Image,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+import { addDefaultsFor, measureLabel } from "../lib/catalogue";
 import { usePantry } from "../state/PantryStore";
 import { useScanSession } from "../state/ScanSessionStore";
 import {
@@ -75,12 +77,43 @@ export default function ScanReviewScreen({
       add.unit === "piece" ? `×${add.amount}` : `${add.amount} ${add.unit}`;
     const location = locations.find((l) => l.id === item.locationId);
 
+    // A tin of peas says "265 g", so the parsed default is a mass — but what
+    // you own is a tin, and what you use is a tin. Only the user knows which
+    // they meant, so both are offered rather than guessed at.
+    const defaults = addDefaultsFor(
+      catalogue[add.product.key] ?? null,
+      add.product.quantityText,
+    );
+    const byCount = add.unit === "piece";
+
     return (
       <View style={[styles.row, attention && styles.rowAttention]}>
         <View style={styles.rowHead}>
-          <Text style={styles.rowName} numberOfLines={1}>
-            {displayName(item)}
-          </Text>
+          {/*
+            The same picture the pantry list shows, from the same field. A row
+            of names alone gives the eye nothing to check against the tin in
+            your hand — which is the whole job of this screen. An unresolved
+            item has no picture, and the empty frame is itself a signal.
+          */}
+          {item.product?.imageUrl ? (
+            <Image
+              source={{ uri: item.product.imageUrl }}
+              style={styles.thumb}
+              accessibilityIgnoresInvertColors
+            />
+          ) : (
+            <View style={[styles.thumb, styles.thumbEmpty]} />
+          )}
+          <View style={styles.rowText}>
+            <Text style={styles.rowName} numberOfLines={1}>
+              {displayName(item)}
+            </Text>
+            {item.product?.brand ? (
+              <Text style={styles.rowBrand} numberOfLines={1}>
+                {item.product.brand}
+              </Text>
+            ) : null}
+          </View>
           <Text style={styles.rowAmount}>{amountLabel}</Text>
         </View>
 
@@ -111,6 +144,40 @@ export default function ScanReviewScreen({
             </TouchableOpacity>
           </View>
         ) : null}
+
+        <View style={styles.forms}>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityState={{ selected: byCount }}
+            accessibilityLabel={`Count ${displayName(item)}`}
+            style={[styles.place, byCount && styles.placeOn]}
+            // The step goes back to null so it is re-derived for the form just
+            // chosen; keeping a 100 g step on a count would be nonsense.
+            onPress={() =>
+              patchItem(item.barcode, { unit: "piece", step: null })
+            }
+          >
+            <Text style={[styles.placeText, byCount && styles.placeTextOn]}>
+              Count
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityState={{ selected: !byCount }}
+            accessibilityLabel={`Weigh ${displayName(item)}`}
+            style={[styles.place, !byCount && styles.placeOn]}
+            onPress={() =>
+              patchItem(item.barcode, {
+                unit: defaults.measureUnit,
+                step: null,
+              })
+            }
+          >
+            <Text style={[styles.placeText, !byCount && styles.placeTextOn]}>
+              {measureLabel(defaults.measureUnit)}
+            </Text>
+          </TouchableOpacity>
+        </View>
 
         <View style={styles.controls}>
           <TouchableOpacity
@@ -239,8 +306,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   rowAttention: { borderColor: colors.danger },
-  rowHead: { flexDirection: "row", alignItems: "center", gap: 8 },
-  rowName: { flex: 1, fontSize: 15, fontWeight: "700", color: colors.text },
+  rowHead: { flexDirection: "row", alignItems: "center", gap: 10 },
+  thumb: { width: 44, height: 44, borderRadius: 6, backgroundColor: colors.bg },
+  thumbEmpty: { borderWidth: 1, borderColor: colors.border },
+  rowText: { flex: 1, gap: 2 },
+  rowName: { fontSize: 15, fontWeight: "700", color: colors.text },
+  rowBrand: { fontSize: 12, color: colors.subtle },
   rowAmount: { fontSize: 14, fontWeight: "700", color: colors.subtle },
   nameRow: { flexDirection: "row", gap: 8, alignItems: "center" },
   input: {
@@ -277,6 +348,7 @@ const styles = StyleSheet.create({
   spacer: { flex: 1 },
   drop: { paddingVertical: 8, paddingHorizontal: 10 },
   dropText: { color: colors.danger, fontWeight: "700" },
+  forms: { flexDirection: "row", gap: 6 },
   places: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   place: {
     paddingVertical: 6,

@@ -20,6 +20,7 @@ import { PantryProvider } from "../../state/PantryStore";
 import { ScanSessionProvider } from "../../state/ScanSessionStore";
 import { RESCAN_DEBOUNCE_MS } from "../../state/scanSession";
 import type { Location, Product } from "../../types";
+import AddHubScreen from "../AddHubScreen";
 import RapidScanScreen from "../RapidScanScreen";
 import ScanReviewScreen from "../ScanReviewScreen";
 
@@ -84,6 +85,29 @@ function Harness() {
             <Text>toggle-review</Text>
           </TouchableOpacity>
         </View>
+      </ScanSessionProvider>
+    </PantryProvider>
+  );
+}
+
+/**
+ * Leaving rapid mode for the add hub, which is what "Pause" does. The session
+ * stays live in memory — it is not written out and read back — so this is the
+ * path that has to surface the resume offer.
+ */
+function PauseHarness() {
+  const [scanning, setScanning] = useState(true);
+  return (
+    <PantryProvider>
+      <ScanSessionProvider>
+        {scanning ? (
+          <RapidScanScreen
+            onReview={() => {}}
+            onCancel={() => setScanning(false)}
+          />
+        ) : (
+          <AddHubScreen />
+        )}
       </ScanSessionProvider>
     </PantryProvider>
   );
@@ -282,6 +306,98 @@ describe("review", () => {
     });
   });
 
+  it("shows the product picture and brand alongside the name", async () => {
+    lookup.mockResolvedValue({
+      ...NUTELLA,
+      imageUrl: "https://images.example/nutella.jpg",
+    });
+    await render(<Harness />);
+
+    await scan("3017620422003");
+    await screen.findByText(/1 product/);
+    await fireEvent.press(screen.getByText("Review 1"));
+
+    await screen.findByText("Add 1 to pantry");
+    expect(screen.getByText("Ferrero")).toBeTruthy();
+  });
+
+  it("offers both forms for a product whose quantity is a mass", async () => {
+    lookup.mockResolvedValue({ ...NUTELLA, quantity: "265 g" });
+    await render(<Harness />);
+
+    await scan("3017620422003");
+    await screen.findByText(/1 product/);
+    await fireEvent.press(screen.getByText("Review 1"));
+
+    await screen.findByText("Add 1 to pantry");
+    // Both chips are present, worded exactly as the single-add sheet words
+    // them, and the parsed default — the mass — is selected.
+    expect(screen.getByText("Count")).toBeTruthy();
+    expect(screen.getByText("Weight")).toBeTruthy();
+    expect(screen.getByText("265 g")).toBeTruthy();
+    expect(
+      screen.getByLabelText("Weigh Nutella").props.accessibilityState.selected,
+    ).toBe(true);
+  });
+
+  it("switches a tin from grams to a count, and creates it that way", async () => {
+    lookup.mockResolvedValue({ ...NUTELLA, quantity: "265 g" });
+    await render(<Harness />);
+
+    await scan("3017620422003");
+    await screen.findByText(/1 product/);
+    await fireEvent.press(screen.getByText("Review 1"));
+
+    await screen.findByText("Add 1 to pantry");
+    await fireEvent.press(screen.getByLabelText("Count Nutella"));
+    await fireEvent.press(screen.getByText("Add 1 to pantry"));
+
+    await waitFor(async () => {
+      const entries: Record<string, { unit: string; amount: number }> =
+        JSON.parse((await AsyncStorage.getItem("@pantry/entries/v1")) ?? "{}");
+      const [entry] = Object.values(entries);
+      expect(entry?.unit).toBe("piece");
+      expect(entry?.amount).toBe(1);
+    });
+  });
+
+  it("remembers the correction, so the next tin opens as a count", async () => {
+    lookup.mockResolvedValue({ ...NUTELLA, quantity: "265 g" });
+    await render(<Harness />);
+
+    await scan("3017620422003");
+    await screen.findByText(/1 product/);
+    await fireEvent.press(screen.getByText("Review 1"));
+    await screen.findByText("Add 1 to pantry");
+    await fireEvent.press(screen.getByLabelText("Count Nutella"));
+    await fireEvent.press(screen.getByText("Add 1 to pantry"));
+
+    await waitFor(async () => {
+      const catalogue: Record<string, { defaultUnit: string }> = JSON.parse(
+        (await AsyncStorage.getItem("@pantry/catalogue/v1")) ?? "{}",
+      );
+      expect(catalogue["barcode:3017620422003"]?.defaultUnit).toBe("piece");
+    });
+  });
+
+  it("keeps the mass form when the user leaves it alone", async () => {
+    lookup.mockResolvedValue({ ...NUTELLA, quantity: "265 g" });
+    await render(<Harness />);
+
+    await scan("3017620422003");
+    await screen.findByText(/1 product/);
+    await fireEvent.press(screen.getByText("Review 1"));
+    await fireEvent.press(await screen.findByText("Add 1 to pantry"));
+
+    await waitFor(async () => {
+      const entries: Record<string, { unit: string; amount: number }> =
+        JSON.parse((await AsyncStorage.getItem("@pantry/entries/v1")) ?? "{}");
+      const [entry] = Object.values(entries);
+      expect(entry?.unit).toBe("g");
+      expect(entry?.amount).toBe(265);
+    });
+  });
+
   it("drops an item without touching the others", async () => {
     await render(<Harness />);
 
@@ -295,5 +411,40 @@ describe("review", () => {
     await fireEvent.press(screen.getByLabelText("Remove 3017620422003"));
 
     expect(await screen.findByText("Add 1 to pantry")).toBeTruthy();
+  });
+});
+
+describe("leaving a session unfinished", () => {
+  it("offers to resume without needing the app reloaded first", async () => {
+    await render(<PauseHarness />);
+
+    await scan("3017620422003");
+    await screen.findByText(/1 product/);
+    await fireEvent.press(screen.getByText("Pause"));
+
+    expect(
+      await screen.findByText("You have an unfinished scan of 1 product"),
+    ).toBeTruthy();
+    expect(screen.getByText("Resume")).toBeTruthy();
+  });
+
+  it("says nothing when the session was never scanned into", async () => {
+    await render(<PauseHarness />);
+    await screen.findByText("Pause");
+    await fireEvent.press(screen.getByText("Pause"));
+
+    await screen.findByText("Type a name");
+    expect(screen.queryByText(/unfinished scan/)).toBeNull();
+  });
+
+  it("stops offering once the session is discarded", async () => {
+    await render(<PauseHarness />);
+
+    await scan("3017620422003");
+    await screen.findByText(/1 product/);
+    await fireEvent.press(screen.getByText("Pause"));
+    await fireEvent.press(await screen.findByText("Discard"));
+
+    expect(screen.queryByText(/unfinished scan/)).toBeNull();
   });
 });

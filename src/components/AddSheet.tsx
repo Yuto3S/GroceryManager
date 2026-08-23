@@ -15,22 +15,17 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { addDefaultsFor } from "../lib/catalogue";
+import { addDefaultsFor, measureLabel } from "../lib/catalogue";
 import { usePantry } from "../state/PantryStore";
 import type { AddProductInput } from "../state/pantryReducer";
 import { colors } from "../theme";
-import type { MeasureUnit, Unit } from "../types";
+import type { Unit } from "../types";
 
 interface AddSheetProps {
   product: AddProductInput;
   /** Called after the entry is created. */
   onDone: () => void;
   onCancel: () => void;
-}
-
-/** How a measure unit reads in a label. */
-function measureLabel(unit: MeasureUnit): string {
-  return unit === "g" ? "Weight" : "Volume";
 }
 
 export default function AddSheet({ product, onDone, onCancel }: AddSheetProps) {

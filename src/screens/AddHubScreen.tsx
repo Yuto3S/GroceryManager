@@ -3,7 +3,13 @@
 
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { isScanningAvailable } from "../lib/scanning";
 import { usePantry } from "../state/PantryStore";
 import { useScanSession } from "../state/ScanSessionStore";
@@ -12,7 +18,7 @@ import { colors } from "../theme";
 export default function AddHubScreen() {
   const router = useRouter();
   const { catalogue } = usePantry();
-  const { pending, resumePending, discardPending } = useScanSession();
+  const { unfinished, resumePending, discardPending } = useScanSession();
   const known = Object.keys(catalogue).length;
 
   // Availability is a resolved state, not a synchronous guess. In a browser the
@@ -30,11 +36,14 @@ export default function AddHubScreen() {
     };
   }, []);
 
-  const pendingCount = pending?.items.length ?? 0;
+  const pendingCount = unfinished?.items.length ?? 0;
 
   return (
-    <View style={styles.root}>
-      {pending ? (
+    // Scrolls, because the content is not a fixed height: the resume banner
+    // appears and disappears, and the last option was falling behind the tab
+    // bar whenever it was there.
+    <ScrollView style={styles.root} contentContainerStyle={styles.content}>
+      {unfinished ? (
         // Never revived silently: the user would otherwise confirm forty items
         // believing they had just scanned them.
         <View style={styles.resume}>
@@ -43,7 +52,7 @@ export default function AddHubScreen() {
             {pendingCount === 1 ? "product" : "products"}
           </Text>
           <Text style={styles.resumeBody}>
-            Started {new Date(pending.startedAt).toLocaleString()}
+            Started {new Date(unfinished.startedAt).toLocaleString()}
           </Text>
           <View style={styles.resumeActions}>
             <TouchableOpacity
@@ -127,12 +136,13 @@ export default function AddHubScreen() {
           For loose fruit and veg, and anything without a barcode
         </Text>
       </TouchableOpacity>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg, padding: 16, gap: 12 },
+  root: { flex: 1, backgroundColor: colors.bg },
+  content: { padding: 16, gap: 12, paddingBottom: 32 },
   resume: {
     backgroundColor: colors.card,
     borderRadius: 12,

@@ -107,3 +107,14 @@ export function addDefaultsFor(
     locationId: record?.defaultLocationId ?? null,
   };
 }
+
+/**
+ * How a measure unit reads in a control label.
+ *
+ * Shared between the add sheet and the scan review row, so the same decision is
+ * worded the same in both places — the two screens are asking the identical
+ * question, and different words would suggest otherwise.
+ */
+export function measureLabel(unit: MeasureUnit): string {
+  return unit === "g" ? "Weight" : "Volume";
+}

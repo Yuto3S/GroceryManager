@@ -152,18 +152,24 @@ means the controls held, not that review is optional.
 | | Where | Window | What it does |
 |---|---|---|---|
 | pnpm `minimumReleaseAge` | `pnpm-workspace.yaml` | 7 days | *Enforces.* Re-checked against every lockfile entry on every install, transitive dependencies included, CI included. Nothing gets in under it. |
-| Dependabot `cooldown` | `.github/dependabot.yml` | 14 days | *Suggests.* Direct dependencies only, and only for the PRs Dependabot chooses to open. |
+| Dependabot `cooldown` | `.github/dependabot.yml` | 7 days | *Suggests.* Direct dependencies only, and only for the PRs Dependabot chooses to open. |
 
-The Dependabot window is the wider of the two deliberately. **14 must stay ≥ 7:**
-if it ever drops below pnpm's window, Dependabot would open PRs whose lockfiles
-pnpm then refuses to install, and each would fail CI with
-`ERR_PNPM_NO_MATURE_MATCHING_VERSION`. Raising pnpm's `minimumReleaseAge` past
-14 days has the same effect and needs the Dependabot value raised with it.
+**One window, written in two places.** They are deliberately the same number:
+7 days is the project's supply-chain window, and Dependabot proposing on a
+different clock than pnpm accepts on would only create noise. If either value
+changes, change both — a Dependabot window *shorter* than pnpm's produces PRs
+whose lockfiles pnpm then refuses to install, each failing CI with
+`ERR_PNPM_NO_MATURE_MATCHING_VERSION`; a *longer* one just delays proposals for
+no added protection, since pnpm is already the gate.
+
+Equal is safe rather than borderline: Dependabot evaluates its window when the
+PR opens, pnpm evaluates at install time, which is strictly later. A release
+that is exactly 7 days old when the PR opens is older than that when CI installs
+it.
 
 **Cooldown does not apply to Dependabot security updates.** That is the intent —
-a fix for a live advisory should not sit for two weeks. Those PRs arrive as soon
-as the advisory does, and the 7-day pnpm floor is what still holds underneath
-them.
+a fix for a live advisory should not sit for a week. Those PRs arrive as soon as
+the advisory does, and the pnpm floor is what still holds underneath them.
 
 **What Dependabot is not allowed to touch.** The Expo SDK ships as a matched
 set: the JS packages, `react-native`, and the native modules compiled into Expo
@@ -187,7 +193,7 @@ here can turn them on. Enable in GitHub → Settings → Advanced Security:
 
 - **Dependabot alerts** — advisories against the dependency graph.
 - **Dependabot security updates** — PRs that fix them. Not subject to the
-  14-day cooldown, by design.
+  7-day cooldown, by design.
 
 `pnpm audit` in CI covers the same ground on a weekly cron and on every push, so
 the two overlap on purpose: the alert is the fast path, the CI gate is the one

@@ -22,7 +22,7 @@ updates:
       time: "07:00"
       timezone: Etc/UTC
 
-    # Supply-chain cooldown: ignore any release younger than 14 days.
+    # Supply-chain cooldown: ignore any release younger than 7 days.
     #
     # This is the SECOND cooldown, not the only one. pnpm's
     # `minimumReleaseAge: 10080` (7 days, in pnpm-workspace.yaml) is the one
@@ -30,15 +30,17 @@ updates:
     # install, including transitive dependencies and including CI. This one is
     # about what Dependabot is willing to *suggest*.
     #
-    # 14 must stay >= pnpm's 7. If it ever drops below, Dependabot would open
-    # PRs whose lockfiles pnpm then refuses to install, and every one of them
-    # would fail CI with ERR_PNPM_NO_MATURE_MATCHING_VERSION.
+    # ONE WINDOW, TWO PLACES. If pnpm's `minimumReleaseAge` ever changes, change
+    # this with it. Dependabot must never propose younger than pnpm accepts, or
+    # it opens PRs whose lockfiles pnpm then refuses to install and every one
+    # fails CI with ERR_PNPM_NO_MATURE_MATCHING_VERSION. Equal is safe: this is
+    # evaluated when the PR opens, pnpm's when CI installs, which is later.
     #
     # NOTE: cooldown applies to version updates only. Dependabot *security*
     # updates ignore it, which is the intent — a fix for a live advisory should
-    # not wait two weeks.
+    # not wait a week.
     cooldown:
-      default-days: 14
+      default-days: 7
 
     # Keep the semver range in package.json unless the new version falls
     # outside it. The default (`increase`) rewrites `~57.0.14` to the new
@@ -113,8 +115,9 @@ updates:
       day: monday
       time: "07:00"
       timezone: Etc/UTC
+    # Same window as npm above; see the note there.
     cooldown:
-      default-days: 14
+      default-days: 7
     open-pull-requests-limit: 3
     labels:
       - dependencies

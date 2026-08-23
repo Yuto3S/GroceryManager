@@ -1,0 +1,9 @@
+# Shared by every flow in this directory.
+#
+# The app runs inside the Expo Go container, so flows open the dev server URL
+# rather than launching a bundle id of our own. Change the port if `expo start`
+# picked a different one.
+appId: host.exp.Exponent
+---
+env:
+  EXPO_URL: exp://127.0.0.1:8081

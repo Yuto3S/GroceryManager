@@ -45,7 +45,12 @@ export default function TabsLayout() {
         <TabSlot style={styles.screen} />
 
         <TabList style={styles.tabBar}>
-          <TabTrigger name="pantry" href="/" style={styles.tab}>
+          <TabTrigger
+            name="pantry"
+            href="/"
+            style={styles.tab}
+            testID="tab-pantry"
+          >
             <Text style={[styles.tabIcon, onPantry && styles.tabActive]}>
               ☰
             </Text>
@@ -54,7 +59,12 @@ export default function TabsLayout() {
             </Text>
           </TabTrigger>
 
-          <TabTrigger name="add" href="/add" style={styles.tab}>
+          <TabTrigger
+            name="add"
+            href="/add"
+            style={styles.tab}
+            testID="tab-add"
+          >
             <Text style={[styles.tabIcon, onAdd && styles.tabActive]}>＋</Text>
             <Text style={[styles.tabLabel, onAdd && styles.tabActive]}>
               Add

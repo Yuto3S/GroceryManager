@@ -46,7 +46,7 @@ export default function AddHubScreen() {
       {unfinished ? (
         // Never revived silently: the user would otherwise confirm forty items
         // believing they had just scanned them.
-        <View style={styles.resume}>
+        <View style={styles.resume} testID="resume-banner">
           <Text style={styles.resumeTitle}>
             You have an unfinished scan of {pendingCount}{" "}
             {pendingCount === 1 ? "product" : "products"}
@@ -58,6 +58,7 @@ export default function AddHubScreen() {
             <TouchableOpacity
               accessibilityRole="button"
               style={styles.resumeGo}
+              testID="resume-go"
               onPress={() => {
                 resumePending();
                 router.push("/add/review");
@@ -68,6 +69,7 @@ export default function AddHubScreen() {
             <TouchableOpacity
               accessibilityRole="button"
               style={styles.resumeDrop}
+              testID="resume-discard"
               onPress={discardPending}
             >
               <Text style={styles.resumeDropText}>Discard</Text>
@@ -81,6 +83,7 @@ export default function AddHubScreen() {
           <TouchableOpacity
             accessibilityRole="button"
             style={styles.primary}
+            testID="go-rapid-scan"
             onPress={() => router.push("/add/rapid")}
           >
             <Text style={styles.primaryGlyph}>▦</Text>
@@ -129,6 +132,7 @@ export default function AddHubScreen() {
       <TouchableOpacity
         accessibilityRole="button"
         style={styles.option}
+        testID="go-manual-add"
         onPress={() => router.push("/add/manual")}
       >
         <Text style={styles.optionTitle}>Type a name</Text>

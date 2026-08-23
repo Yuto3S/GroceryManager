@@ -1,0 +1,45 @@
+# Pausing rapid mode keeps the session live in memory rather than turning it
+# into a pending one, so the hub — which read `pending` — offered nothing until
+# the app was reloaded. The one moment the user had not asked for it.
+#
+# Jest covers this now, through a harness that swaps the two screens. This flow
+# covers the part the harness fakes: real navigation, with the provider staying
+# mounted across it.
+#
+# LIMITATION, and it is a real one: the iOS Simulator has no camera, so nothing
+# can be scanned here. That leaves only the empty-session half of the bug — the
+# assertion that pausing with nothing scanned offers nothing. The half that
+# actually broke needs a barcode in front of a camera, which on a simulator
+# means the Android emulator's virtual scene, not this flow. Do not read a pass
+# here as the regression being covered end to end; the Jest harness is what
+# covers that.
+appId: host.exp.Exponent
+---
+- openLink: ${EXPO_URL}
+- tapOn:
+    id: "tab-add"
+
+# Clear any session left by an earlier run, so the flow starts from nothing.
+- runFlow:
+    when:
+      visible:
+        id: "resume-banner"
+    commands:
+      - tapOn:
+          id: "resume-discard"
+
+- tapOn:
+    id: "go-rapid-scan"
+- runFlow:
+    when:
+      visible: "Allow camera"
+    commands:
+      - tapOn: "Allow camera"
+      - tapOn:
+          text: "Allow|OK|Allow While Using App"
+          optional: true
+
+# Nothing has been scanned, so pausing should leave nothing to resume.
+- tapOn: "Pause"
+- assertNotVisible:
+    id: "resume-banner"

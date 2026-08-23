@@ -1,0 +1,35 @@
+# The single-shot camera had no exit. The screen filled with a live viewfinder
+# and nothing on it said you could leave; the only way back was the OS gesture,
+# which is not an affordance.
+#
+# A unit test cannot catch this. It could assert the button exists in the tree —
+# and would have passed on the permission screen that shipped stretched down the
+# whole page with invisible text. Reaching the control and tapping it is the
+# only assertion that means anything here.
+appId: host.exp.Exponent
+---
+- openLink: ${EXPO_URL}
+- assertVisible: "Pantry"
+
+- tapOn:
+    id: "tab-add"
+- tapOn: "Scan one thing"
+
+# The camera may ask for permission first; take it if offered, and carry on if
+# it was already granted on a previous run.
+- runFlow:
+    when:
+      visible: "Allow camera"
+    commands:
+      - tapOn: "Allow camera"
+      - tapOn:
+          text: "Allow|OK|Allow While Using App"
+          optional: true
+
+- assertVisible:
+    id: "scan-cancel"
+- tapOn:
+    id: "scan-cancel"
+
+# Back where we started, not stranded in the camera.
+- assertVisible: "Scan one thing"

@@ -207,6 +207,7 @@ export default function ScanAddScreen({
         <TouchableOpacity
           accessibilityRole="button"
           accessibilityLabel="Cancel scanning"
+          testID="scan-cancel"
           style={styles.pill}
           onPress={onCancel}
         >

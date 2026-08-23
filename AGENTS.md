@@ -140,8 +140,29 @@ inventory. Re-buy suggestions return later, built on real consumption data.
 - **Detox is not an option while the app targets Expo Go.** It needs the native
   `ios/`/`android/` projects, so it requires `expo prebuild`. That would also
   invalidate the SECURITY.md rationale for accepting GHSA-w5hq-g745-h8pq, which
-  rests on prebuild never running. Expo documents Maestro for E2E; it still
-  needs a dev build but adds no npm packages.
+  rests on prebuild never running.
+- **Maestro does run against Expo Go** — the earlier note here saying it needed
+  a dev build is wrong. Because the app runs inside the Expo Go container you
+  cannot `launchApp` with your own bundle id; the flow opens the dev server URL
+  instead:
+
+  ```yaml
+  - openLink: exp://127.0.0.1:8081
+  ```
+
+  It adds no npm packages (the CLI is a separate install, like OpenSpec) and
+  needs no prebuild, so the GHSA-w5hq-g745-h8pq rationale survives.
+- **Running Maestro in EAS Workflows would not survive it.** Cloud runs need an
+  app binary, which means a build, which means prebuild — the same trap as
+  Detox. Local-against-Expo-Go is the only E2E path that keeps SECURITY.md true
+  as written.
+- Maestro drives **simulators only**; there is no physical-iPhone support, and
+  iOS simulators need full Xcode, not just the Command Line Tools.
+- **The iOS Simulator has no camera**, so no flow can decode a barcode there.
+  E2E on iOS covers navigability and layout — the gap unit tests leave — and
+  nothing of the scan path itself. The Android emulator's virtual scene can be
+  pointed at a supplied image, which is the only way to automate scanning
+  without a physical device. Flows live in `.maestro/`; see its README.
 
 ## Code style
 

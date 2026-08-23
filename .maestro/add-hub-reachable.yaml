@@ -1,0 +1,20 @@
+# "Type a name" sat behind the tab bar and the hub did not scroll, so the last
+# option was unreachable whenever the resume banner was up.
+#
+# The element was in the tree the whole time and every unit test passed. What
+# was wrong was where it was, which only a real viewport can tell you.
+appId: host.exp.Exponent
+---
+- openLink: ${EXPO_URL}
+- tapOn:
+    id: "tab-add"
+
+# Not assertVisible — that is what was already true and still broken. Tapping is
+# the assertion: Maestro scrolls to it, and fails if it cannot be reached.
+- scrollUntilVisible:
+    element:
+      id: "go-manual-add"
+    direction: DOWN
+- tapOn:
+    id: "go-manual-add"
+- assertVisible: "Type a name|What is it"

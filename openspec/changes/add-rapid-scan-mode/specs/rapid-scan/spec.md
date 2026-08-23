@@ -88,6 +88,28 @@ Acknowledgement SHALL NOT block or delay the next scan.
 - **THEN** no lookup is attempted
 - **AND** the value is not added to the queue
 
+### Requirement: Scanning is offered only where it works
+
+The system SHALL offer a scanning entry point only on platforms where barcode
+scanning is actually available, and SHALL NOT render a control that cannot work.
+Where scanning is unavailable, the system SHALL say so and SHALL still offer the
+add paths that do not need a camera.
+
+Availability SHALL NOT depend on downloading a barcode-decoding engine at
+runtime, so that the offline guarantee above holds wherever scanning is offered.
+
+#### Scenario: Platform without barcode scanning
+
+- **WHEN** the user opens the add screen on a platform with no barcode scanning
+- **THEN** no scanning entry point is shown
+- **AND** the reason is stated, and typing a name or picking from the catalogue
+  remain available
+
+#### Scenario: Platform with barcode scanning
+
+- **WHEN** the user opens the add screen on a platform that can scan
+- **THEN** the scanning entry points are shown and work offline
+
 ### Requirement: A session applies one location to everything scanned in it
 
 A session SHALL have a single location, chosen when it starts and changeable

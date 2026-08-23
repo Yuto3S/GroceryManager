@@ -17,7 +17,7 @@ failure**, not about modelling.
 
 **Non-Goals:**
 
-- Web camera support. See Risks.
+- Web camera support beyond browsers with a native `BarcodeDetector`. See Risks.
 - Any change to how a single product is added, looked up or normalized.
 - Recognising products without a barcode. Loose produce is change 6.
 - Editing the pantry from within a session. Review acts on the session only.
@@ -139,11 +139,50 @@ democratically.
 
 ## Risks / Trade-offs
 
-- **Web has no rapid mode.** Barcode scanning in a browser depends on
-  `BarcodeDetector`, which Safari and Firefox largely lack. → Detect support and
-  hide the entry point rather than offering a control that does nothing. This
-  needs verifying on the target browsers before the UI is built, because it
-  decides whether the web build shows this feature at all.
+- **Web scanning works, but not the way this design assumed.** *(Spike, task
+  1.1, 2026-08-23 — this replaces the original risk, which was wrong.)*
+
+  The premise was that `BarcodeDetector` gates web scanning. It does not:
+  `expo-camera@57.0.3` declares `barcode-detector@^3.0.0` as a hard dependency
+  and `src/web/WebBarcodeScanner.ts` uses `globalThis.BarcodeDetector` when it
+  exists and dynamically imports that polyfill when it does not. So scanning
+  works in Safari and Firefox too.
+
+  The catch is where the polyfill gets its engine. `barcode-detector` wraps
+  `zxing-wasm`, whose default `locateFile` resolves to
+  `https://fastly.jsdelivr.net/npm/zxing-wasm@3.1.1/dist/...`. On a browser
+  without native `BarcodeDetector` the first scan therefore fetches a WASM
+  binary from a third-party CDN at runtime.
+
+  Two consequences, neither of them about coverage:
+
+  1. **`rapid-scan` says a session "SHALL function with no network connection at
+     all".** On Chrome that holds. On Safari or Firefox offline, the polyfill
+     cannot load and scanning does not start at all.
+  2. **It is a runtime fetch of executable code from a host that is not
+     `registry.npmjs.org`.** Every control in SECURITY.md — the cooldown, the
+     integrity hashes, the registry-only rule — is about knowing what code runs.
+     A CDN fetch at runtime sits outside all of them.
+
+  Native support today: Chrome and Edge (Chrome Android fully, desktop
+  partially); Safari desktop and iOS ship it disabled by default; Firefox does
+  not implement it.
+
+  This applies equally to the single-shot `/add/scan` route already shipped in
+  `add-pantry-inventory`, which has no web guard.
+
+  **Decided (2026-08-23): offer scanning on web only where the browser has a
+  native `BarcodeDetector`.** Chrome and Edge get it; Safari and Firefox are told
+  to use the phone. The polyfill is then never executed, so no CDN fetch ever
+  happens, the offline guarantee holds everywhere scanning is offered, and
+  SECURITY.md stays true as written. The cost is no web scanning in Safari,
+  which is accepted: the phone is the scanner, and the typed-name and catalogue
+  add paths still work in every browser.
+
+  Rejected: allowing the polyfill (a runtime third-party code fetch, and an
+  offline guarantee that quietly does not hold), and self-hosting the WASM (a
+  build step and a version to keep in step, for a path the phone already
+  covers).
 
 - **A hundred queued lookups could hammer Open Food Facts.** → Bound concurrency
   and keep the existing `User-Agent` and timeout. A bootstrap is exactly the
@@ -169,6 +208,8 @@ democratically.
 
 - The debounce constant. Needs real use, and the undo affordance means getting it
   wrong is recoverable.
-- Whether `BarcodeDetector` coverage makes any web scanning path worth building.
-  Answerable by a short spike, and it changes only whether an entry point is
-  rendered — not the specs, the approach, or the task breakdown.
+- ~~Whether `BarcodeDetector` coverage makes any web scanning path worth
+  building.~~ **Answered by the spike — see Risks.** Coverage turned out not to
+  be the question; the question is whether a runtime WASM fetch from a CDN is
+  acceptable. Left for the user to decide, since it trades a working feature on
+  Safari against a supply-chain rule this project takes seriously.

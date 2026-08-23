@@ -17,6 +17,14 @@ inventory. Re-buy suggestions return later, built on real consumption data.
   npm `latest` — TypeScript 7 is out and ahead of Expo.
 - Barcode scanning uses **`expo-camera`** (`CameraView` + `onBarcodeScanned`),
   not the deprecated `expo-barcode-scanner`.
+- **Scanning on web is gated on a real capability check.** `expo-camera` falls
+  back to a WASM polyfill (`barcode-detector` → `zxing-wasm`) whose default
+  `locateFile` fetches the engine from jsdelivr at runtime — outside every
+  control in SECURITY.md, and it breaks the offline guarantee. So
+  `src/lib/scanning.ts` offers scanning only where the browser has a native
+  `BarcodeDetector`. Note the check is `getSupportedFormats()`, not `typeof
+  BarcodeDetector`: the constructor can exist while the platform behind it reads
+  nothing, which is what "partial support" means for desktop Chrome.
 - Persistence is **AsyncStorage**, wrapped in `src/state/PantryStore.tsx`.
   Add new persisted fields there; don't scatter storage calls around. The
   reducer underneath it (`src/state/pantryReducer.ts`) is pure — no React, no

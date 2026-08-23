@@ -55,3 +55,24 @@ jest.mock("expo-camera", () => {
     useCameraPermissions: () => [{ granted: true }, jest.fn()],
   };
 });
+
+// Haptics never fire under Jest; what the tests care about is *whether* they
+// were asked to, and that a platform without them is not an error path.
+jest.mock("expo-haptics", () => ({
+  notificationAsync: jest.fn(async () => {}),
+  selectionAsync: jest.fn(async () => {}),
+  impactAsync: jest.fn(async () => {}),
+  NotificationFeedbackType: {
+    Success: "success",
+    Warning: "warning",
+    Error: "error",
+  },
+  ImpactFeedbackStyle: { Light: "light", Medium: "medium", Heavy: "heavy" },
+}));
+
+// Keeping the screen awake is a native side effect with nothing to assert.
+jest.mock("expo-keep-awake", () => ({
+  useKeepAwake: () => {},
+  activateKeepAwakeAsync: async () => {},
+  deactivateKeepAwake: async () => {},
+}));

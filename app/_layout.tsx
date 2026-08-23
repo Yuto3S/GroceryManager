@@ -6,17 +6,20 @@
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { PantryProvider } from "../src/state/PantryStore";
+import { ScanSessionProvider } from "../src/state/ScanSessionStore";
 
 export default function RootLayout() {
   return (
     <PantryProvider>
-      <StatusBar style="dark" />
-      {/*
+      <ScanSessionProvider>
+        <StatusBar style="dark" />
+        {/*
         No header at this level — the tab group draws its own, the same one
         App.tsx used to draw. Screens pushed on top of the tabs later can opt
         back in per-route.
       */}
-      <Stack screenOptions={{ headerShown: false }} />
+        <Stack screenOptions={{ headerShown: false }} />
+      </ScanSessionProvider>
     </PantryProvider>
   );
 }

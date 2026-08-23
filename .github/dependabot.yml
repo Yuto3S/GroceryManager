@@ -1,0 +1,128 @@
+# Dependabot — https://docs.github.com/code-security/dependabot
+#
+# This complements the controls in SECURITY.md, it does not replace them. A
+# Dependabot PR is a *proposal*: CI still runs `pnpm install --frozen-lockfile`,
+# `pnpm audit`, typecheck, lint and tests against it, and `strictDepBuilds`
+# still fails the install if a new dependency ships a build script.
+
+version: 2
+
+updates:
+  # ---------------------------------------------------------------- npm (pnpm)
+  #
+  # `package-ecosystem: npm` covers pnpm; Dependabot reads `pnpm-lock.yaml` at
+  # lockfileVersion 9.0, which is what pnpm 11 writes here.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      # An hour after the CI advisory cron, so the weekly `pnpm audit` result
+      # and the week's PRs don't land in the same minute.
+      time: "07:00"
+      timezone: Etc/UTC
+
+    # Supply-chain cooldown: ignore any release younger than 14 days.
+    #
+    # This is the SECOND cooldown, not the only one. pnpm's
+    # `minimumReleaseAge: 10080` (7 days, in pnpm-workspace.yaml) is the one
+    # that actually enforces — it re-checks every lockfile entry on every
+    # install, including transitive dependencies and including CI. This one is
+    # about what Dependabot is willing to *suggest*.
+    #
+    # 14 must stay >= pnpm's 7. If it ever drops below, Dependabot would open
+    # PRs whose lockfiles pnpm then refuses to install, and every one of them
+    # would fail CI with ERR_PNPM_NO_MATURE_MATCHING_VERSION.
+    #
+    # NOTE: cooldown applies to version updates only. Dependabot *security*
+    # updates ignore it, which is the intent — a fix for a live advisory should
+    # not wait two weeks.
+    cooldown:
+      default-days: 14
+
+    # Keep the semver range in package.json unless the new version falls
+    # outside it. The default (`increase`) rewrites `~57.0.14` to the new
+    # version's range, which would quietly walk the Expo pins off SDK 57.
+    versioning-strategy: increase-if-necessary
+
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+    commit-message:
+      prefix: chore
+      include: scope
+
+    groups:
+      # One PR a week for the routine stuff, rather than five.
+      dev-tooling:
+        patterns:
+          - "@biomejs/*"
+          - "@testing-library/*"
+          - "@types/*"
+          - jest
+          - jest-expo
+          - typescript*
+        update-types:
+          - minor
+          - patch
+
+    ignore:
+      # The Expo SDK ships as a matched set: the JS packages, react-native, and
+      # the native modules inside Expo Go all have to agree. A major bump to any
+      # one of them is an SDK upgrade, and the way to do that here is
+      # `npx expo install --fix` — not a lockfile bump. See AGENTS.md.
+      - dependency-name: expo
+        update-types: ["version-update:semver-major"]
+      - dependency-name: expo-*
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@expo/*"
+        update-types: ["version-update:semver-major"]
+      # react-native is 0.x, so *minor* is its breaking axis — 0.86 -> 0.87 is
+      # a release-train change, not a patch. Ignore both.
+      - dependency-name: react-native
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: react-native-*
+        update-types: ["version-update:semver-major"]
+      - dependency-name: react
+        update-types: ["version-update:semver-major"]
+      - dependency-name: react-dom
+        update-types: ["version-update:semver-major"]
+      - dependency-name: jest-expo
+        update-types: ["version-update:semver-major"]
+
+      # TypeScript tracks what the SDK expects, not npm `latest` — TS 7 is out
+      # and ahead of Expo. AGENTS.md pins this deliberately.
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
+
+      # Pinned in `overrides` to the versions Expo Go actually ships; the
+      # correct value is whatever bundledNativeModules.json says, so a bump
+      # here is an SDK decision. Listed for completeness — they are transitive,
+      # and Dependabot does not propose those for npm.
+      - dependency-name: react-native-worklets
+      - dependency-name: "@react-native/metro-config"
+
+  # ------------------------------------------------------------ GitHub Actions
+  #
+  # The workflow pins actions by major tag (`actions/checkout@v4`), which floats
+  # within v4 but never crosses to v5. Nothing else watches these.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "07:00"
+      timezone: Etc/UTC
+    cooldown:
+      default-days: 14
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
+      - github-actions
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      actions:
+        patterns:
+          - "*"

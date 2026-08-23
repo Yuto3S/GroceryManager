@@ -131,6 +131,70 @@ See "Dependency policy" in `AGENTS.md`. The controls are:
 - **Reproducibility** — `pnpm install --frozen-lockfile` everywhere, including CI.
 - **Registry only** — never add a git dependency: registry tarballs skip their
   `prepare` scripts, git dependencies run them.
+- **Automated update proposals** — Dependabot, configured in
+  `.github/dependabot.yml`. It proposes; the controls above still decide. See
+  below.
+
+### Dependabot (2026-08-23)
+
+`.github/dependabot.yml` watches two ecosystems: `npm` (which is how Dependabot
+reads `pnpm-lock.yaml` — lockfileVersion 9.0, what pnpm 11 writes) and
+`github-actions` for the workflow's pinned action tags.
+
+**Dependabot proposes; it does not decide.** Every PR it opens still goes
+through CI: `pnpm install --frozen-lockfile`, `pnpm audit`, typecheck,
+`check:no-js`, lint and the test suite. `strictDepBuilds` still fails the
+install if a bumped package has picked up a build script. A green Dependabot PR
+means the controls held, not that review is optional.
+
+**There are two cooldowns, and they are not the same control.**
+
+| | Where | Window | What it does |
+|---|---|---|---|
+| pnpm `minimumReleaseAge` | `pnpm-workspace.yaml` | 7 days | *Enforces.* Re-checked against every lockfile entry on every install, transitive dependencies included, CI included. Nothing gets in under it. |
+| Dependabot `cooldown` | `.github/dependabot.yml` | 14 days | *Suggests.* Direct dependencies only, and only for the PRs Dependabot chooses to open. |
+
+The Dependabot window is the wider of the two deliberately. **14 must stay ≥ 7:**
+if it ever drops below pnpm's window, Dependabot would open PRs whose lockfiles
+pnpm then refuses to install, and each would fail CI with
+`ERR_PNPM_NO_MATURE_MATCHING_VERSION`. Raising pnpm's `minimumReleaseAge` past
+14 days has the same effect and needs the Dependabot value raised with it.
+
+**Cooldown does not apply to Dependabot security updates.** That is the intent —
+a fix for a live advisory should not sit for two weeks. Those PRs arrive as soon
+as the advisory does, and the 7-day pnpm floor is what still holds underneath
+them.
+
+**What Dependabot is not allowed to touch.** The Expo SDK ships as a matched
+set: the JS packages, `react-native`, and the native modules compiled into Expo
+Go all have to agree, and `bundledNativeModules.json` is the authority. A
+lockfile bump cannot make that decision, so majors on `expo`, `expo-*`,
+`@expo/*`, `react`, `react-dom`, `react-native-*` and `jest-expo` are ignored,
+as are minors on `react-native` itself — it is 0.x, so minor is its breaking
+axis. Upgrading the SDK is `npx expo install --fix`, deliberately, not a PR that
+happens to be green. `typescript` majors are ignored for the same reason: the
+pin tracks what the SDK expects, and TypeScript 7 is ahead of Expo.
+
+`versioning-strategy: increase-if-necessary` keeps the semver ranges in
+`package.json` as written. The default (`increase`) rewrites them to match each
+new version, which would walk the `~57.0.x` Expo pins off SDK 57 one PR at a
+time.
+
+### Dependabot alerts and security updates
+
+Alerts are a **repository setting**, not a file in the repo — nothing committed
+here can turn them on. Enable in GitHub → Settings → Advanced Security:
+
+- **Dependabot alerts** — advisories against the dependency graph.
+- **Dependabot security updates** — PRs that fix them. Not subject to the
+  14-day cooldown, by design.
+
+`pnpm audit` in CI covers the same ground on a weekly cron and on every push, so
+the two overlap on purpose: the alert is the fast path, the CI gate is the one
+that blocks a merge. Accepted advisories are listed under `audit.ignore` in
+`pnpm-workspace.yaml` and explained above — Dependabot has no view of that
+allowlist, so it will keep raising the three accepted findings. Close them with
+a reference to the rationale rather than re-litigating each time.
 
 ### Version pins made to satisfy the cooldown (2026-08-22)
 

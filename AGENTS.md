@@ -80,6 +80,14 @@ inventory. Re-buy suggestions return later, built on real consumption data.
   lockfile entry that isn't resolved by integrity hash.
 - Reproducible installs use `pnpm install --frozen-lockfile`, which fails
   rather than re-resolving. Commit `package.json` and `pnpm-lock.yaml` together.
+- **Dependabot proposes updates; it does not decide.** `.github/dependabot.yml`
+  runs a **14-day** cooldown, deliberately wider than pnpm's 7-day
+  `minimumReleaseAge` — that one enforces on every install, this one only
+  filters what gets suggested. Keep 14 ≥ pnpm's window or every Dependabot PR
+  fails CI with `ERR_PNPM_NO_MATURE_MATCHING_VERSION`. Majors on the Expo/RN/
+  React set are ignored there, and minors on `react-native` too (it is 0.x, so
+  minor is its breaking axis): an SDK upgrade is `npx expo install --fix`, not a
+  lockfile bump that happens to be green. Rationale in SECURITY.md.
 - Never run `npm audit fix --force`: it "fixes" the two accepted advisories by
   downgrading to `expo@53`. Rationale in SECURITY.md.
 - Open Food Facts data is untrusted (anyone can edit it). Normalize it in

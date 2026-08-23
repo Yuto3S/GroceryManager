@@ -5,9 +5,10 @@
 // action, which is what makes the whole thing reachable by a test without
 // rendering anything or faking a device.
 
+import type { ProduceItem } from "../data/produce";
 import type { BackupContents } from "../lib/backup";
 import { capCache } from "../lib/cache";
-import { catalogueKeyFor } from "../lib/identity";
+import { catalogueKeyFor, catalogueKeyForProduce } from "../lib/identity";
 import { decideMerge } from "../lib/merge";
 import { consume, remove, restock, setAmount } from "../lib/pantry";
 import type {
@@ -100,6 +101,38 @@ export function productInputForUnknownBarcode(
     category: null,
     quantityText: "",
     needsName: true,
+    shelfLifeDays: null,
+  };
+}
+
+/**
+ * Build the add payload for an item picked from the produce list.
+ *
+ * Identity comes from the item's own key, so this is the one builder whose
+ * result does not depend on what the product is called — see
+ * `catalogueKeyForProduce`.
+ *
+ * `shelfLifeDays` stays null even though the produce item has one. Carrying it
+ * through would be `add-expiry-estimates` arriving early and half-done: the
+ * spec for this change says nothing reads that field yet, and a value that
+ * silently reaches the catalogue would start prefilling expiry dates nobody
+ * has specified.
+ *
+ * No brand, image or Nutri-Score: produce is a kind of thing, not a package,
+ * and there is nothing truthful to put in them. `quantityText` is empty for the
+ * same reason, which lands the add sheet on its one-piece default.
+ */
+export function productInputForProduce(item: ProduceItem): AddProductInput {
+  return {
+    key: catalogueKeyForProduce(item.key),
+    barcode: null,
+    name: item.name,
+    brand: "",
+    imageUrl: null,
+    nutriScore: null,
+    category: item.group,
+    quantityText: "",
+    needsName: false,
     shelfLifeDays: null,
   };
 }

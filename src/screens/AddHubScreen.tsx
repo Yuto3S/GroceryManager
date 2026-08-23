@@ -134,12 +134,29 @@ export default function AddHubScreen() {
       <TouchableOpacity
         accessibilityRole="button"
         style={styles.option}
+        testID="go-produce"
+        onPress={() => router.push("/add/produce")}
+      >
+        <Text style={styles.optionTitle}>Fruit &amp; veg</Text>
+        <Text style={styles.optionBody}>
+          Pick loose produce from a list — no barcode needed
+        </Text>
+      </TouchableOpacity>
+
+      {/*
+        This used to advertise itself as the route for "loose fruit and veg".
+        With the picker above, two options claimed the same job and this was the
+        worse one — so it now describes what is actually left for it.
+      */}
+      <TouchableOpacity
+        accessibilityRole="button"
+        style={styles.option}
         testID="go-manual-add"
         onPress={() => router.push("/add/manual")}
       >
         <Text style={styles.optionTitle}>Type a name</Text>
         <Text style={styles.optionBody}>
-          For loose fruit and veg, and anything without a barcode
+          For anything else without a barcode
         </Text>
       </TouchableOpacity>
     </ScrollView>

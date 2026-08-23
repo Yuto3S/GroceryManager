@@ -240,6 +240,34 @@ describe("PantryScreen", () => {
     expect(screen.getAllByText("Milk")).toHaveLength(2);
   });
 
+  it("groups produce under its own category, not the leftovers bucket", async () => {
+    // Everything hand-typed lands in `Other`, which is most of a pantry before
+    // the picker exists. A picked item carries its group across as its
+    // category, so the fruit and veg section is real rather than a bucket.
+    await seed(
+      [
+        entry({ id: "e1", productKey: "produce:carrots" }),
+        entry({ id: "e2", productKey: "name:sourdough" }),
+      ],
+      [
+        record({
+          key: "produce:carrots",
+          name: "Carrots",
+          category: "Vegetables",
+        }),
+        record({ key: "name:sourdough", name: "Sourdough", category: null }),
+      ],
+    );
+    await renderPantry();
+
+    await screen.findByText("Fridge");
+    await fireEvent.press(screen.getByText("By category"));
+
+    expect(await screen.findByText("Vegetables")).toBeTruthy();
+    expect(screen.getByText("Carrots")).toBeTruthy();
+    expect(screen.getByText("Other")).toBeTruthy();
+  });
+
   it("offers both places and backup from the header", async () => {
     await renderPantry();
     expect(await screen.findByText("Places")).toBeTruthy();

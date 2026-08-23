@@ -44,7 +44,15 @@ export default function CatalogueAddScreen({
   const isEmpty = Object.keys(catalogue).length === 0;
 
   if (product) {
-    return <AddSheet product={product} onDone={onDone} onCancel={onCancel} />;
+    // Back to the list, not out of the screen — cancelling one product is not
+    // cancelling the search that found it.
+    return (
+      <AddSheet
+        product={product}
+        onDone={onDone}
+        onCancel={() => setProduct(null)}
+      />
+    );
   }
 
   if (isEmpty) {

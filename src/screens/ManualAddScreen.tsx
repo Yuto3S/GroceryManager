@@ -19,17 +19,35 @@ import { colors } from "../theme";
 interface ManualAddScreenProps {
   onDone: () => void;
   onCancel: () => void;
+  /**
+   * What to start the box with.
+   *
+   * The produce picker hands over whatever was searched for when nothing
+   * matched, so a miss there costs a tap rather than typing it again.
+   */
+  initialName?: string;
 }
 
 export default function ManualAddScreen({
   onDone,
   onCancel,
+  initialName = "",
 }: ManualAddScreenProps) {
-  const [name, setName] = useState("");
+  // A plain initialiser is right here, unlike the add sheet's defaults: this
+  // value comes from the route, not from anything the store hydrates later.
+  const [name, setName] = useState(initialName);
   const [product, setProduct] = useState<AddProductInput | null>(null);
 
   if (product) {
-    return <AddSheet product={product} onDone={onDone} onCancel={onCancel} />;
+    // Back to the name box, with what was typed still in it. Cancelling the
+    // sheet means "not these details", not "forget the name I just typed".
+    return (
+      <AddSheet
+        product={product}
+        onDone={onDone}
+        onCancel={() => setProduct(null)}
+      />
+    );
   }
 
   // Null means the name normalized to nothing — punctuation, spaces, emoji.

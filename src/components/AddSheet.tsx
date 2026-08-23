@@ -16,10 +16,12 @@ import {
   View,
 } from "react-native";
 import { addDefaultsFor, measureLabel } from "../lib/catalogue";
+import { produceForCatalogueKey } from "../lib/produce";
 import { usePantry } from "../state/PantryStore";
 import type { AddProductInput } from "../state/pantryReducer";
 import { colors } from "../theme";
 import type { Unit } from "../types";
+import ProduceIcon from "./ProduceIcon";
 
 interface AddSheetProps {
   product: AddProductInput;
@@ -32,6 +34,8 @@ export default function AddSheet({ product, onDone, onCancel }: AddSheetProps) {
   const { catalogue, locations, addProduct } = usePantry();
 
   const record = catalogue[product.key] ?? null;
+  // Null for everything that is not produce, which is every other add path.
+  const produce = produceForCatalogueKey(product.key);
   const defaults = useMemo(
     () => addDefaultsFor(record, product.quantityText),
     [record, product.quantityText],
@@ -123,8 +127,19 @@ export default function AddSheet({ product, onDone, onCancel }: AddSheetProps) {
       keyboardShouldPersistTaps="handled"
     >
       <View style={styles.product}>
+        {/*
+          Three cases, in order of how much they actually say about the product:
+          a real packshot from Open Food Facts, the produce item's own icon, and
+          the placeholder glyph for something with neither. Produce never has an
+          imageUrl — it is a kind of thing, not a package — so without the middle
+          case every picked tomato arrived here as an empty grey box.
+        */}
         {product.imageUrl ? (
           <Image source={{ uri: product.imageUrl }} style={styles.thumb} />
+        ) : produce ? (
+          <View style={[styles.thumb, styles.thumbEmpty]}>
+            <ProduceIcon item={produce} size={30} />
+          </View>
         ) : (
           <View style={[styles.thumb, styles.thumbEmpty]}>
             <Text style={styles.thumbGlyph}>▣</Text>

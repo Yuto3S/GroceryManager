@@ -41,8 +41,12 @@ See proposal.md — Why. The constraints that shape the approach:
 - **Editing the produce list from inside the app.** It is data, shipped with the
   build. A user who wants a variety we do not carry types the name.
 - **Localisation.** English display names only, matching the rest of the app.
-- **Images or icons per item.** A 120-row list of thumbnails is a bundle-size
-  and sourcing problem for a cosmetic gain. Text rows, like the catalogue picker.
+- **~~Images or icons per item.~~ Reversed after review.** This was ruled out as
+  a cosmetic gain not worth the bundle and sourcing cost. That was wrong about
+  what the icon is *for*: with a hundred items the picture is what you find the
+  row by, and without it the picker is a wall of text that is not obviously
+  faster than typing. Icons are now in scope; what they are made of is the one
+  open question below.
 - **Reading `shelfLifeDays`.** Carried, never read. See the spec.
 
 ## Decisions
@@ -176,10 +180,70 @@ nothing renderable by the picker — but they are ordinary catalogue records wit
 a name and a category, so the pantry, the catalogue picker and search all keep
 working on them. Nothing is orphaned in a way the user can see.
 
+## Layout decisions (added after first review)
+
+The first build was a flat list of 103 rows with a search box. It worked and it
+was unusable: a column of near-identical text rows you read one at a time. Four
+changes, agreed with the user:
+
+- **A grid, not a list.** Three tiles per row. This is what makes an icon worth
+  having — in a list row a picture is decoration beside the name you actually
+  read, in a grid it is the thing you find the item by. Three columns rather
+  than four because "Brussels sprouts" and "Spaghetti squash" need two lines at
+  four on a narrow phone, and a grid with uneven tile heights stops reading as
+  a grid.
+- **Tiles are a fixed share of the row (`width: 31.5%`), not `flex: 1`.** With
+  `flex: 1` a final row of one stretches that tile across the screen, which
+  reads as a different kind of thing rather than as the end of the list. The
+  fixed width is also what lets `gridRows` leave a short row short instead of
+  padding it with nulls the renderer has to skip.
+- **A chip row (All / Veg / Fruit / Herbs) and collapsible sections.** Both
+  pinned above the scroll area, because filtering a long grid is exactly what
+  you want after scrolling into it, and that is exactly when a control inside
+  the scroll view is off screen. A collapsed section keeps its header *and its
+  count*, so it reads as shut rather than gone. Searching overrides a collapse:
+  hiding results the user just asked for would read as the search being broken.
+- **Icons go through `src/components/ProduceIcon.tsx` and nowhere else**, so the
+  unresolved artwork question below cannot spread into the layout.
+
+**Cancelling the add sheet returns to the picker, not out of it.** All three
+pick-then-confirm screens passed the route's `onCancel` straight into
+`AddSheet`, so backing out of one item threw away the search, the open section
+and the typed name that got you there. Fixed in the produce, catalogue and
+manual screens together — same defect, same fix, and leaving two of three broken
+would be worse than either state.
+
+**The add sheet shows the produce icon.** It has three cases now, in order of
+how much they say about the product: a real packshot from Open Food Facts, the
+produce item's own icon, then the placeholder glyph. Produce never has an
+`imageUrl` — it is a kind of thing, not a package — so without the middle case
+every picked item arrived at the sheet as an empty grey box.
+`produceForCatalogueKey` recovers the item from the `produce:` key, so no other
+add path has to carry produce-shaped fields it has no use for.
+
 ## Open Questions
 
-- **Whether "Herbs & aromatics" earns its own group** or folds into Vegetables.
-  It depends on how many rows survive curation — a group of four is noise. The
-  data file is the only thing affected, and the picker renders whatever groups
-  exist, so this can be settled while curating without touching the spec, the
-  approach, or the tasks.
+- **What a produce icon actually is.** Emoji is in place and is not the intended
+  answer: there is no glyph for parsnips, celeriac, kohlrabi or okra, and a
+  carrot standing in for a parsnip reads as the wrong item rather than a missing
+  picture. Investigated, with results recorded here so the work is not repeated:
+  - `openfarmcc/open-crop-icons` is **CC0**, 247 icons, and covers **77 of our
+    103** with real drawings. It is strongest exactly where emoji is weakest
+    (parsnip, celeriac, kohlrabi, radicchio, okra, swede, salsify) and has **no
+    citrus and no common fruit at all** — bananas, oranges, lemons, grapes,
+    pineapple, mango, kiwi, avocado are all absent.
+  - Wikimedia Commons full-text search is **not usable unattended**: it matches
+    the word, not the thing. It returned an elephant for "kumquat", the EU
+    organic logo for "mango", a chemistry pathway diagram for "rhubarb" and a
+    Swiss coat of arms for "cranberry". Every candidate needs a human to look at
+    it. `upload.wikimedia.org` also rate-limits hard (HTTP 429 through backoff
+    to ~160s), and 5 items — tangerines, clementines, dragon fruit, gooseberries,
+    bean sprouts — had no CC0/PD candidate at all.
+  - `qlmanage -t -s 96 -o <dir> <svg>` rasterises SVG on macOS with no
+    `brew install`, which is how the 77 were rendered and checked.
+
+  Deferred to the user. `ProduceIcon` is the only file that changes, whatever
+  the answer.
+
+- **Whether "Herbs & aromatics" earns its own group** — **settled during
+  curation: yes.** Ten items survived, enough for a section rather than noise.

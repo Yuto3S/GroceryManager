@@ -6,6 +6,7 @@ import {
   repairBackup,
 } from "../../lib/backup";
 import { isOutOfStock, isVisible } from "../../lib/pantry";
+import { produceByKey } from "../../lib/produce";
 import type { Location } from "../../types";
 import {
   type Action,
@@ -13,6 +14,8 @@ import {
   initialState,
   type PantryState,
   pantryReducer,
+  productInputForName,
+  productInputForProduce,
 } from "../pantryReducer";
 
 const NOW = new Date(2026, 7, 22, 12, 0).getTime();
@@ -792,5 +795,89 @@ describe("RESTORE_BACKUP", () => {
     });
     expect(after.entries["entry-1"]?.deletedAt).toBe(NOW);
     expect(visibleOf(after)).toHaveLength(0);
+  });
+});
+
+describe("productInputForProduce", () => {
+  const carrots = produceByKey("carrots");
+
+  it("keys on the produce slug, not the name", () => {
+    expect(productInputForProduce(carrots!).key).toBe("produce:carrots");
+  });
+
+  it("does not carry the shelf life through", () => {
+    // The produce table has one; add-expiry-estimates is what reads it. A value
+    // arriving in the catalogue now would start prefilling expiry dates that no
+    // spec has described yet.
+    expect(carrots?.shelfLifeDays).toBeGreaterThan(0);
+    expect(productInputForProduce(carrots!).shelfLifeDays).toBeNull();
+  });
+
+  it("carries the group as the category", () => {
+    expect(productInputForProduce(carrots!).category).toBe("Vegetables");
+  });
+
+  it("has no brand, image, grade or quantity text", () => {
+    const input = productInputForProduce(carrots!);
+    expect(input.brand).toBe("");
+    expect(input.imageUrl).toBeNull();
+    expect(input.nutriScore).toBeNull();
+    expect(input.quantityText).toBe("");
+    expect(input.barcode).toBeNull();
+    expect(input.needsName).toBe(false);
+  });
+});
+
+describe("adding produce through the reducer", () => {
+  const carrots = () => productInputForProduce(produceByKey("carrots")!);
+
+  it("makes one catalogue record when the same item is added twice", () => {
+    let state = pantryReducer(hydrated(), add({ product: carrots() }));
+    state = pantryReducer(
+      state,
+      add({ entryId: "entry-2", product: carrots() }),
+    );
+
+    const records = Object.values(state.catalogue);
+    expect(records).toHaveLength(1);
+    expect(records[0]?.useCount).toBe(2);
+    expect(records[0]?.key).toBe("produce:carrots");
+  });
+
+  it("keeps a picked item and a typed name of the same word apart", () => {
+    // Stated in the spec rather than hidden: the app cannot know the user meant
+    // the same thing, and merging them on a guess is not undoable.
+    let state = pantryReducer(hydrated(), add({ product: carrots() }));
+    state = pantryReducer(
+      state,
+      add({
+        entryId: "entry-2",
+        product: productInputForName("carrots") ?? undefined,
+      }),
+    );
+
+    expect(Object.keys(state.catalogue).sort()).toEqual([
+      "name:carrots",
+      "produce:carrots",
+    ]);
+  });
+
+  it("puts produce in a category rather than the leftovers bucket", () => {
+    const state = pantryReducer(hydrated(), add({ product: carrots() }));
+    expect(state.catalogue["produce:carrots"]?.category).toBe("Vegetables");
+  });
+
+  it("survives the item being reworded", () => {
+    // The rename-safety the key scheme exists for: the display name changes in
+    // a later version, and the entry already added still resolves.
+    const renamed = { ...produceByKey("carrots")!, name: "Carrots, whole" };
+    const state = pantryReducer(hydrated(), add({ product: carrots() }));
+    const after = pantryReducer(
+      state,
+      add({ entryId: "entry-2", product: productInputForProduce(renamed) }),
+    );
+
+    expect(Object.keys(after.catalogue)).toEqual(["produce:carrots"]);
+    expect(after.catalogue["produce:carrots"]?.useCount).toBe(2);
   });
 });

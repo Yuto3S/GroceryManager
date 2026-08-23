@@ -3,6 +3,7 @@ import {
   catalogueKeyFor,
   catalogueKeyForBarcode,
   catalogueKeyForName,
+  catalogueKeyForProduce,
   normalizeName,
 } from "../identity";
 
@@ -97,5 +98,35 @@ describe("catalogueKeyFor", () => {
   it("is null when there is neither", () => {
     expect(catalogueKeyFor({ barcode: null, name: "" })).toBeNull();
     expect(catalogueKeyFor({})).toBeNull();
+  });
+});
+
+describe("catalogueKeyForProduce", () => {
+  it("prefixes, so produce cannot collide with a barcode or a typed name", () => {
+    expect(catalogueKeyForProduce("tomatoes")).toBe("produce:tomatoes");
+    expect(catalogueKeyForProduce("tomatoes")).not.toBe(
+      catalogueKeyForName("tomatoes"),
+    );
+    expect(catalogueKeyForProduce("3017620422003")).not.toBe(
+      catalogueKeyForBarcode("3017620422003"),
+    );
+  });
+
+  it("is independent of the display name", () => {
+    // The rename-safety the whole scheme rests on: an item's label is editable
+    // copy, and rewording it must not orphan the entries already added under
+    // it. Only the slug is identity.
+    const before = { key: "tomatoes", name: "Tomatoes" };
+    const after = { key: "tomatoes", name: "Tomatoes, vine" };
+
+    expect(catalogueKeyForProduce(after.key)).toBe(
+      catalogueKeyForProduce(before.key),
+    );
+  });
+
+  it("keeps two different items apart", () => {
+    expect(catalogueKeyForProduce("tomatoes")).not.toBe(
+      catalogueKeyForProduce("cherry-tomatoes"),
+    );
   });
 });

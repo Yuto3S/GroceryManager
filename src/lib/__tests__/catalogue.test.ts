@@ -188,3 +188,35 @@ describe("addDefaultsFor", () => {
     expect(addDefaultsFor(remembered, "750 g").measureAmount).toBe(750);
   });
 });
+
+describe("addDefaultsFor, for produce", () => {
+  // Produce supplies no quantity text — it is a kind of thing, not a package —
+  // so the sheet has to fall back exactly as it does for a typed name.
+  it("opens a first-time produce item on one piece with a step of one", () => {
+    const defaults = addDefaultsFor(null, "");
+
+    expect(defaults.unit).toBe("piece");
+    expect(defaults.countAmount).toBe(1);
+    expect(defaults.countStep).toBe(1);
+    expect(defaults.locationId).toBeNull();
+  });
+
+  it("picks up what the user chose the first time", () => {
+    const defaults = addDefaultsFor(
+      record({
+        key: "produce:carrots",
+        defaultUnit: "g",
+        measureUnit: "g",
+        countStep: 2,
+        measureStep: 50,
+        defaultLocationId: "loc-fridge",
+      }),
+      "",
+    );
+
+    expect(defaults.unit).toBe("g");
+    expect(defaults.countStep).toBe(2);
+    expect(defaults.measureStep).toBe(50);
+    expect(defaults.locationId).toBe("loc-fridge");
+  });
+});

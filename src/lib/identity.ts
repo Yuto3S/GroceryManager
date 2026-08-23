@@ -68,6 +68,22 @@ export function catalogueKeyForBarcode(barcode: string): string {
 }
 
 /**
+ * The catalogue key for an item picked from the produce list.
+ *
+ * The argument is the item's own `key` from `src/data/produce.ts`, never its
+ * display name. That is the whole point: a tomato picked today and a tomato
+ * picked after someone rewords the row to "Tomatoes, vine" must land on the
+ * same catalogue record, and a key derived from the label could not do that.
+ *
+ * Prefixed like the other two, so a produce item and a product someone typed
+ * the same name for stay distinct. The app cannot know the user meant one
+ * thing, and merging them on a guess is not undoable.
+ */
+export function catalogueKeyForProduce(key: string): string {
+  return `produce:${key}`;
+}
+
+/**
  * The catalogue key for a product, however it was identified.
  *
  * Barcode wins whenever there is one: two products can share a name, but a

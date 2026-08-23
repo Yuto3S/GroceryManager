@@ -18,6 +18,7 @@ import {
   useMemo,
   useReducer,
 } from "react";
+import type { BackupContents } from "../lib/backup";
 import type {
   CatalogueEntry,
   Location,
@@ -77,6 +78,19 @@ interface PantryContextValue {
   removeLocation: (id: string, destinationId: string) => void;
 
   cacheProduct: (product: Product) => void;
+
+  /**
+   * Replace the pantry with a restored backup.
+   *
+   * Takes contents that `src/lib/backup.ts` has already validated and repaired,
+   * so there is no path from a file to storage that skips that step. The
+   * existing per-slice persist effects write the result, which is why there is
+   * no storage code here.
+   */
+  restoreBackup: (contents: BackupContents) => void;
+
+  /** Fresh seed locations, for a backup that contains none. */
+  makeSeedLocations: () => Location[];
 }
 
 const PantryContext = createContext<PantryContextValue | null>(null);
@@ -196,6 +210,14 @@ export function PantryProvider({ children }: { children: ReactNode }) {
     dispatch({ type: "CACHE_PRODUCT", product, now: Date.now() });
   }, []);
 
+  const restoreBackup = useCallback((contents: BackupContents) => {
+    dispatch({ type: "RESTORE_BACKUP", contents });
+  }, []);
+
+  // The id generator lives here, so the seed locations a repair might need are
+  // built here too and handed to the pure code rather than generated inside it.
+  const makeSeedLocations = useCallback(() => seedLocations(Date.now()), []);
+
   // Locations are handed out as a list, already filtered and ordered, because
   // every caller wants exactly that and none of them should have to know that
   // removal is a tombstone rather than a delete.
@@ -224,6 +246,8 @@ export function PantryProvider({ children }: { children: ReactNode }) {
     renameLocation,
     removeLocation,
     cacheProduct,
+    restoreBackup,
+    makeSeedLocations,
   };
 
   return (

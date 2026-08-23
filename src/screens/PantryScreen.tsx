@@ -165,6 +165,11 @@ export default function PantryScreen() {
             <Text style={styles.manageText}>Places</Text>
           </TouchableOpacity>
         </Link>
+        <Link href="/backup" asChild>
+          <TouchableOpacity accessibilityRole="button" style={styles.manage}>
+            <Text style={styles.manageText}>Backup</Text>
+          </TouchableOpacity>
+        </Link>
       </View>
 
       {total === 0 ? (

@@ -83,7 +83,12 @@ inventory. Re-buy suggestions return later, built on real consumption data.
 - Never run `npm audit fix --force`: it "fixes" the two accepted advisories by
   downgrading to `expo@53`. Rationale in SECURITY.md.
 - Open Food Facts data is untrusted (anyone can edit it). Normalize it in
-  `src/api/openFoodFacts.ts`; image URLs must be `https://` only.
+  `src/api/openFoodFacts.ts`; image URLs must be `https://` only. **A backup
+  file being imported is untrusted on exactly the same terms** — it can be
+  hand-edited, truncated by a transfer, or be some other JSON file entirely.
+  `parseBackup` checks it field by field. A structural failure rejects the whole
+  document; one malformed record is dropped and *reported*, because rejecting a
+  hundred-item backup over one bad entry would cost the user their pantry.
 - **Types are not validation.** `res.json()` is typed `unknown` and stays that
   way until `isRecord`/`asString` have checked it. Annotating the response as a
   `Product` would be an assertion, not a check, and would let a vandalized
@@ -114,7 +119,9 @@ inventory. Re-buy suggestions return later, built on real consumption data.
   `cache.ts` (bounding the offline cache), `quantity.ts` (parsing untrusted
   quantity text), `identity.ts` (stable catalogue keys), `merge.ts` (whether a
   duplicate joins an existing entry), `pantry.ts` (consume/restock/clamp),
-  `grouping.ts` and `catalogue.ts` (the list and picker selectors).
+  `grouping.ts` and `catalogue.ts` (the list and picker selectors),
+  `backup.ts` (building and validating the backup document, including the
+  referential repair pass).
 - `extractBarcode` takes `unknown`, not `string`, so the "what if the scanner
   hands us a number" tests stay reachable. Keep it that way.
 - `react-test-renderer` is deprecated and doesn't support React 19 — use
@@ -163,6 +170,11 @@ inventory. Re-buy suggestions return later, built on real consumption data.
   generator and AsyncStorage, and nothing else. That boundary is what would let
   a sync engine slot in underneath.
 - `src/api/openFoodFacts.ts` — the only place that talks to the network.
+- `src/lib/backupFile.ts` — the only place that touches the filesystem or the
+  share sheet, and the only `Platform.OS` fork in the feature. `expo-file-system`
+  is a warning stub on web, so the web paths are a Blob download and the
+  `expo-document-picker` `<input type=file>`; everything above this module deals
+  in strings, which is what keeps `backup.ts` testable with no native mocks.
 - `src/types.ts` — the shared domain types. `Product` is the *normalized* shape,
   deliberately: see the note under "Dependency policy" about untrusted data.
   Persisted records extend `Tracked` (UUID, `createdAt`/`updatedAt`, `deletedAt`

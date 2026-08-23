@@ -5,6 +5,7 @@
 // action, which is what makes the whole thing reachable by a test without
 // rendering anything or faking a device.
 
+import type { BackupContents } from "../lib/backup";
 import { capCache } from "../lib/cache";
 import { catalogueKeyFor } from "../lib/identity";
 import { decideMerge } from "../lib/merge";
@@ -185,7 +186,17 @@ export type Action =
       destinationId: string;
       now: number;
     }
-  | { type: "CACHE_PRODUCT"; product: Product; now: number };
+  | { type: "CACHE_PRODUCT"; product: Product; now: number }
+  | {
+      type: "RESTORE_BACKUP";
+      /**
+       * Already validated and made internally consistent by
+       * `src/lib/backup.ts`. The reducer's job here is the replacement, not
+       * the vetting — a dangling reference is a property of the file, and is
+       * dealt with on that side of the boundary.
+       */
+      contents: BackupContents;
+    };
 
 /** Records that have been tombstoned are gone as far as everything else cares. */
 function isLive<T extends { deletedAt: number | null }>(record: T): boolean {
@@ -504,6 +515,20 @@ export function pantryReducer(state: PantryState, action: Action): PantryState {
           },
         }),
       };
+
+    case "RESTORE_BACKUP": {
+      // Replace, do not merge. Restore exists for the case where there is
+      // nothing to merge with, and a half-merged pantry has no way back.
+      //
+      // `productCache` is deliberately left alone: it is not in a backup, and
+      // wiping a working offline cache would be a cost with no benefit.
+      return {
+        ...state,
+        entries: action.contents.entries,
+        catalogue: action.contents.catalogue,
+        locations: action.contents.locations,
+      };
+    }
 
     default: {
       // Exhaustiveness check: add a variant to `Action` without a case above

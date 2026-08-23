@@ -109,6 +109,25 @@ The trade-off is that these sit below what the SDK 57 version map wants, so
 until 2026-08-27**, when the blocked versions age past the window. One
 `--fix` after that date catches everything up.
 
+### Backup dependencies, pinned to matured versions (2026-08-23)
+
+`add-pantry-export` needed three first-party Expo modules. Two of them had
+patches published inside the 7-day window, so the same rule as above applied:
+**take the newest version that has already aged past the cooldown**, rather than
+exempting it.
+
+| Package | Installed | Published | Latest at the time | Published |
+|---|---|---|---|---|
+| `expo-file-system` | 57.0.4 | 2026-08-14 | 57.0.5 | 2026-08-20 |
+| `expo-sharing` | 57.0.12 | 2026-08-14 | 57.0.14 | 2026-08-20 |
+| `expo-document-picker` | 57.0.1 | 2026-07-15 | 57.0.1 | — |
+
+No `minimumReleaseAgeExclude` entries were added. All three resolve to
+`registry.npmjs.org` by integrity hash, none ships a build script, and
+`pnpm audit` reports no advisory beyond the three already accepted below.
+
+These join the versions that the 2026-08-27 `expo install --fix` will catch up.
+
 ### `overrides` in `pnpm-workspace.yaml`
 
 Two transitive packages are pinned, both because a `*` peer range let pnpm

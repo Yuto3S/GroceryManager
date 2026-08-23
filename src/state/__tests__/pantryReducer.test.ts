@@ -1,4 +1,10 @@
 import { describe, expect, it } from "@jest/globals";
+import {
+  type BackupContents,
+  buildBackup,
+  parseBackup,
+  repairBackup,
+} from "../../lib/backup";
 import { isOutOfStock, isVisible } from "../../lib/pantry";
 import type { Location } from "../../types";
 import {
@@ -618,5 +624,173 @@ describe("the offline lookup cache stays a separate concern", () => {
       cachedAt: NOW,
     });
     expect(state.catalogue).toEqual({});
+  });
+});
+
+describe("RESTORE_BACKUP", () => {
+  /** A pantry with one Nutella in the fridge and a cached product. */
+  function populated(): PantryState {
+    const withEntry = pantryReducer(hydrated(), add());
+    return pantryReducer(withEntry, {
+      type: "CACHE_PRODUCT",
+      now: NOW,
+      product: {
+        barcode: "3017620422003",
+        name: "Nutella",
+        brand: "Ferrero",
+        quantity: "400 g",
+        imageUrl: null,
+        nutriScore: "E",
+        category: "Hazelnut spreads",
+      },
+    });
+  }
+
+  const restored = (): BackupContents => ({
+    entries: {
+      "restored-1": {
+        id: "restored-1",
+        productKey: "barcode:0000000000000",
+        amount: 2,
+        unit: "piece",
+        step: 1,
+        locationId: "loc-elsewhere",
+        expiresAt: "2026-09-01",
+        createdAt: 111,
+        updatedAt: 222,
+        deletedAt: null,
+      },
+    },
+    catalogue: {
+      "barcode:0000000000000": {
+        id: "cat-restored",
+        key: "barcode:0000000000000",
+        barcode: "0000000000000",
+        name: "Restored beans",
+        brand: "",
+        imageUrl: null,
+        nutriScore: null,
+        category: null,
+        quantityText: "",
+        needsName: false,
+        defaultUnit: "piece",
+        countStep: 1,
+        measureStep: 100,
+        measureUnit: "g",
+        defaultLocationId: "loc-elsewhere",
+        useCount: 1,
+        shelfLifeDays: null,
+        createdAt: 111,
+        updatedAt: 222,
+        deletedAt: null,
+      },
+    },
+    locations: { "loc-elsewhere": location("loc-elsewhere", "Cellar") },
+  });
+
+  it("replaces the pantry rather than merging into it", () => {
+    const state = pantryReducer(populated(), {
+      type: "RESTORE_BACKUP",
+      contents: restored(),
+    });
+    expect(Object.keys(state.entries)).toEqual(["restored-1"]);
+    expect(Object.keys(state.catalogue)).toEqual(["barcode:0000000000000"]);
+    expect(Object.keys(state.locations)).toEqual(["loc-elsewhere"]);
+  });
+
+  it("removes entries that existed before but are not in the backup", () => {
+    const before = populated();
+    expect(before.entries["entry-1"]).toBeDefined();
+    const state = pantryReducer(before, {
+      type: "RESTORE_BACKUP",
+      contents: restored(),
+    });
+    expect(state.entries["entry-1"]).toBeUndefined();
+  });
+
+  it("copies identities and timestamps verbatim", () => {
+    const state = pantryReducer(populated(), {
+      type: "RESTORE_BACKUP",
+      contents: restored(),
+    });
+    const entry = state.entries["restored-1"];
+    expect(entry?.id).toBe("restored-1");
+    expect(entry?.createdAt).toBe(111);
+    expect(entry?.updatedAt).toBe(222);
+    expect(entry?.expiresAt).toBe("2026-09-01");
+  });
+
+  it("does not renumber or clamp a tombstone", () => {
+    const contents = restored();
+    const only = contents.entries["restored-1"];
+    if (!only) throw new Error("fixture is wrong");
+    contents.entries["restored-1"] = { ...only, deletedAt: 999 };
+    const state = pantryReducer(populated(), {
+      type: "RESTORE_BACKUP",
+      contents,
+    });
+    expect(state.entries["restored-1"]?.deletedAt).toBe(999);
+  });
+
+  it("leaves the offline product cache alone", () => {
+    const before = populated();
+    const state = pantryReducer(before, {
+      type: "RESTORE_BACKUP",
+      contents: restored(),
+    });
+    expect(state.productCache).toEqual(before.productCache);
+    expect(state.productCache["3017620422003"]).toBeDefined();
+  });
+
+  it("round-trips a pantry through build, parse and restore unchanged", () => {
+    const before = populated();
+    const text = JSON.stringify(
+      buildBackup(
+        {
+          entries: before.entries,
+          catalogue: before.catalogue,
+          locations: before.locations,
+        },
+        NOW,
+      ),
+    );
+    const parsed = parseBackup(text);
+    if (!parsed.ok)
+      throw new Error(`unexpectedly rejected: ${parsed.reason.kind}`);
+    const { contents } = repairBackup(parsed, SEED);
+
+    const after = pantryReducer(hydrated(), {
+      type: "RESTORE_BACKUP",
+      contents,
+    });
+    expect(after.entries).toEqual(before.entries);
+    expect(after.catalogue).toEqual(before.catalogue);
+    expect(after.locations).toEqual(before.locations);
+  });
+
+  it("round-trips tombstones without resurrecting them", () => {
+    const removed = pantryReducer(pantryReducer(hydrated(), add()), {
+      type: "REMOVE_ENTRY",
+      id: "entry-1",
+      now: NOW,
+    });
+    const text = JSON.stringify(
+      buildBackup(
+        {
+          entries: removed.entries,
+          catalogue: removed.catalogue,
+          locations: removed.locations,
+        },
+        NOW,
+      ),
+    );
+    const parsed = parseBackup(text);
+    if (!parsed.ok) throw new Error("unexpectedly rejected");
+    const after = pantryReducer(hydrated(), {
+      type: "RESTORE_BACKUP",
+      contents: repairBackup(parsed, SEED).contents,
+    });
+    expect(after.entries["entry-1"]?.deletedAt).toBe(NOW);
+    expect(visibleOf(after)).toHaveLength(0);
   });
 });

@@ -239,4 +239,10 @@ describe("PantryScreen", () => {
     await screen.findAllByText("Milk");
     expect(screen.getAllByText("Milk")).toHaveLength(2);
   });
+
+  it("offers both places and backup from the header", async () => {
+    await renderPantry();
+    expect(await screen.findByText("Places")).toBeTruthy();
+    expect(screen.getByText("Backup")).toBeTruthy();
+  });
 });
